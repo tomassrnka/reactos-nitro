@@ -2,6 +2,93 @@
 
 reactos-nitro is an unofficial patch set on top of upstream ReactOS. It is not an official ReactOS release and is not affiliated with the ReactOS project. Newest entry first. All times UTC.
 
+## reactos-nitro 2026.10-4
+
+**Tagged `nitro-2026.10-4`** (2026-10-24) at fork `main` [`be9d31b1b9a`](https://github.com/tomassrnka/reactos/commit/be9d31b1b9a4dcdc3123026d15a3bab5c44c35ea). The app-compatibility release: **Claude Desktop (Electron/Chromium) now runs, renders, and connects to the live service on reactos-nitro**, on the same upstream base as 2026.10-2/-3, plus Firefox 32+64 side-by-side rendering and a kernel security/stability batch.
+
+| Item | Value |
+|---|---|
+| Release tag | `nitro-2026.10-4` → [`be9d31b1b9a`](https://github.com/tomassrnka/reactos/commit/be9d31b1b9a4dcdc3123026d15a3bab5c44c35ea) |
+| ReactOS base | upstream [`f53b1d15601`](https://github.com/reactos/reactos/commit/f53b1d1560120c529763b18963fdee68f39118af) — unchanged from 2026.10-2/-3 |
+| Patch set | Cumulative over-base patch `nitro-2026.10-4-over-f53b1d15601.cumulative.patch` (verified: apply on `f53b1d15601` → tree == REL_SHA, diff empty). 3232 commits (2440 non-merge) over upstream, same base as 2026.10-2/-3. Direct-main cut (no replayed topic stack this release). |
+| Artifacts | amd64-with-WoW64 ISO, i386 ISO, source tarball, patch (sha256 below) |
+
+| Artifact | Size | sha256 |
+|---|---|---|
+| reactos-nitro-2026.10-4-amd64-wow64-Release.iso | 550502400 | `dd47c83e75cedaf198c08a55bbea4fcaf2b4b45a5ce41bb1d25e88fa40363d36` |
+| reactos-nitro-2026.10-4-i386-Release.iso | 500170752 | `3cf90c74d81509a715bec45aec7d6333218b536ed1955c781c3b62f3886b6aa7` |
+| reactos-nitro-2026.10-4-src.tar.gz | 113864152 | `72d72c0a369966113224773e65df1cf58401e4534a082ffd1be64aa8509cc928` |
+| nitro-2026.10-4-over-f53b1d15601.cumulative.patch | 44891396 | `14c141906570d7cb54731b4fb5e72e422cabc56ddddc0414c28fec045eb386e4` |
+
+### Highlights
+**Claude Desktop runs and renders on reactos-nitro** — the modern Electron/Chromium app class is unlocked. Stock Electron 37.6.0 / Chrome 138 installs (via the extracted app payload), launches, creates its GUI window, and paints its UI through Chromium's SkiaRenderer/GPU compositor over ANGLE→SwiftShader (pure-CPU). Reaching a painted window required a chain of Windows-correctness fixes across win32k, user32, ntdll and the Object Manager — each an app-agnostic multiplier that benefits the whole Electron/Chromium (and GL/D3D) class, not just Claude. Claude Desktop also **connects to the live claude.ai** — the login UI loads, Cloudflare challenge passes, HTTP/2 — over the guest's standard networking (Chromium's own TLS stack; no new OS crypto code required). Also in this release: **Firefox 158** UI + content sandbox (level 1), and **Firefox-ESR 32-bit and 64-bit rendering content side-by-side on a single amd64+WoW64 system** (T104: the WoW64 thread-handle regression that blanked the 32-bit broker is fixed), and a kernel **security batch** including three use-after-free / elevation-of-privilege-class fixes (a `DuplicateHandle` access-escalation, a tcpip type-confusion regression, and FsRtl change-notify races). Gate: 4-config builds rc=0, both ISOs boot to desktop, reproducibility verified (rebased stack tree == main), T1 regression triaged (known-flaky only).
+
+### What reactos-nitro adds on top of ReactOS
+- **Modern Electron/Chromium rendering (Claude Desktop):** `GetDC(NULL)` screen DC now associates with the desktop window (ANGLE EGL display bring-up); Win8 pointer-input `user32` exports (Chromium delay-load); app-manifest OS-version honored in `GetVersion`/`RtlGetVersion` per-process (Crashpad handler spawn); `advapi32` `BuildSecurityDescriptorW/A` implemented + unprivileged mandatory-label set (Crashpad named-pipe SD); `ntdll` `RtlGetUnloadEventTraceEx` implemented + `RTL_UNLOAD_EVENT_TRACE` pointer-width (crashpad dump capture); `ObDuplicateObject` capped to source-handle access (Chromium read-only shared-memory). Per-app config (SwiftShader ICD + `no3d`) ships with the Claude app. See the render recipe in the harness docs.
+- **32-bit COM / MSXML (WoW64):** 32-bit `msxml3` shipped + registered in SysWOW64 so x86 `CoCreateInstance(DOMDocument30)` works on amd64 — unblocks a broad class of 32-bit installers/apps.
+- **Firefox 158**: Win10 per-app identity + Win10 API surface + content-sandbox level 1 (64-bit UI renders). WoW64 Firefox-ESR 32-bit + 64-bit both launch with browser chrome + navigation; side-by-side *content* rendering is limited (broker/sandbox) and tracked under T86.
+- **Security hardening:** `DuplicateHandle` no longer elevates handle access beyond the source (EoP); tcpip `SET_INFORMATION_EX` entity type-check (fixes a non-admin kernel type-confusion/UAF regression); FsRtl change-notify cancel/cleanup races, lost-wakeup and a reuse-UAF closed; GDI `CreateDIBSection` size-math overflow guards.
+- **Stability:** process-quota block-switch race (prevents a QUOTA_UNDERFLOW bugcheck); ramdisk AddDevice flag-mask fix; OOM test-hook stripped from Release kernels.
+
+## Bug fixes
+
+<details><summary>App compatibility — Electron/Chromium (Claude Desktop) (8 fixes)</summary>
+
+- WIN32SS/NTUSER: `IntWindowFromDC` returns the desktop window for the windowless screen DC so ANGLE's `eglGetPlatformDisplay(GetDC(NULL))` succeeds — T96 ([437c7de7424](https://github.com/tomassrnka/reactos/commit/437c7de7424))
+- WIN32SS/USER32: export Win8 pointer-input APIs (`GetPointerType`/`GetPointerDevice`/`GetPointerPenInfo`/`RegisterPointerDeviceNotifications`) so Chromium delay-load resolves — T100 ([44ce99c2dfd](https://github.com/tomassrnka/reactos/commit/44ce99c2dfd))
+- NDK/RTL: `RTL_UNLOAD_EVENT_TRACE.SizeOfImage` pointer-wide (x64) so crashpad records the unloaded-module list — T100 ([64cea71224c](https://github.com/tomassrnka/reactos/commit/64cea71224c))
+- NTOS:OB: `ObDuplicateObject` — user-mode `DuplicateHandle` may not elevate access beyond the source handle (also EoP fix); unblocks Chromium read-only shared-memory validation — T100 ([77bb7949b8d](https://github.com/tomassrnka/reactos/commit/77bb7949b8d))
+- KERNEL32/NTDLL: honor the app-manifest compatibility version in `GetVersion`/`RtlGetVersion` (per-process) so Crashpad's handler spawn succeeds — T94 ([58a90fb603b](https://github.com/tomassrnka/reactos/commit/58a90fb603b))
+- ADVAPI32/NTOS:OB: implement `BuildSecurityDescriptorW/A` + allow an unprivileged process to set its own mandatory label, fixing Crashpad's named-pipe security descriptor — T90 ([c092b8f5038](https://github.com/tomassrnka/reactos/commit/c092b8f5038))
+- NTDLL/RTL: implement `RtlGetUnloadEventTraceEx` (was a stub returning success without writing its out-pointers → AV in Vista+ callers) — T97 ([d315f811604](https://github.com/tomassrnka/reactos/commit/d315f811604))
+- SYSWOW64/SYSSETUP: ship + register 32-bit `msxml3`/`libxslt` so x86 `CoCreateInstance(DOMDocument30)` works on amd64 — T93 ([0c5d91b1606](https://github.com/tomassrnka/reactos/commit/0c5d91b1606))
+</details>
+
+<details><summary>Firefox 158 / WoW64 (4 fixes)</summary>
+
+- WOW64: `NtCreateThread` thunk clamps the returned guest handle's access to what the thread object grants (via `NtQueryObject`) instead of requesting `THREAD_ALL_ACCESS` verbatim — fixes WoW64 `CreateThread` failing (the thread generic mapping grants `0x1f0fff`, not `0x1fffff`, and T100's anti-escalation correctly rejects the over-request), which had blanked 32-bit Firefox's Chromium broker init under WoW64. Enables FF32+FF64 side-by-side content render — T104 ([cd739717eaf](https://github.com/tomassrnka/reactos/commit/cd739717eaf))
+- Shim-engine PAGE_READWRITE fix + Firefox 116+ per-app Win10 identity + `QueryUnbiasedInterruptTimePrecise`/`GetSystemCpuSetInformation`/`CM_Register_Notification` ([03f77e1dc84](https://github.com/tomassrnka/reactos/commit/03f77e1dc84))
+- KERNEL32: validate+accept `CHILD_PROCESS_POLICY`/`COMPONENT_FILTER`/`JOB_LIST` proc-thread attributes ([41be7cf42c0](https://github.com/tomassrnka/reactos/commit/41be7cf42c0))
+- NTOS:MM: `NtReadVirtualMemory` Windows partial-copy semantics (`STATUS_PARTIAL_COPY`) ([9b08b829477](https://github.com/tomassrnka/reactos/commit/9b08b829477))
+</details>
+
+<details><summary>Filesystems — FsRtl / ntfsng change-notify (3 fixes)</summary>
+
+- ntfsng: change-notify torn-read race across rename (over-read into watcher output) + drop 64KB/watch alloc — T87 ([efdb9109733](https://github.com/tomassrnka/reactos/commit/efdb9109733))
+- NTOS:FSRTL: change-notify cancel/cleanup unlink race + completed-IRP requeue + report-size cluster (bugcheck 0x139 negative control) — T88 ([0715ca13dce](https://github.com/tomassrnka/reactos/commit/0715ca13dce))
+- NTOS:FSRTL: change-notify lost-wakeup + reuse-edge use-after-free — T98 ([424e479fc37](https://github.com/tomassrnka/reactos/commit/424e479fc37))
+</details>
+
+<details><summary>Networking (1 fix, security)</summary>
+
+- tcpip: `SET/QUERY_INFORMATION_EX` ADDRESS_OBJECT/CONNECTION entity type-check + live reference — fixes a non-admin kernel type-confusion/pool-corruption/UAF regression — T89 ([34fb956b444](https://github.com/tomassrnka/reactos/commit/34fb956b444))
+</details>
+
+<details><summary>win32k GDI (1 fix)</summary>
+
+- `DIB_CreateDIBSection` size-math made overflow-safe (64-bit pitch, checked alloc, reject bad dimensions) — T62 ([7016ac5f357](https://github.com/tomassrnka/reactos/commit/7016ac5f357))
+</details>
+
+<details><summary>Kernel — Ps / Mm (2 fixes)</summary>
+
+- NTOS:PS: quota block-switch race vs lockless charges (epoch-quiesce; prevents a QUOTA_UNDERFLOW 0x21 bugcheck, Release-affecting) — T57 ([f83de5692f5](https://github.com/tomassrnka/reactos/commit/f83de5692f5))
+- NTOS:MM: compile the `MmDbgTestOomRetryBound` test hook out of Release kernels (release-prep) — T61 ([d1b1077cba6](https://github.com/tomassrnka/reactos/commit/d1b1077cba6))
+</details>
+
+<details><summary>Drivers & toolchain (2 fixes)</summary>
+
+- ramdisk: `RamdiskAddDevice` clears only `DO_DEVICE_INITIALIZING` (was wiping `DO_DIRECT_IO`/`DO_POWER_PAGABLE`) — T75 ([0e439e7d3e7](https://github.com/tomassrnka/reactos/commit/0e439e7d3e7))
+- ADVAPI32: link at DLL 0x502 (guard the `RtlAddMandatoryAce` Vista+ dependency) — T95 ([51a81438119](https://github.com/tomassrnka/reactos/commit/51a81438119))
+</details>
+
+### Limitations
+- **Claude render requires the per-app config** (SwiftShader ICD + `no3d` + ANGLE launch flags) that ships with the Claude app packaging; it is pure-CPU rendering (no GPU acceleration).
+- **Firefox 32+64 side-by-side content render is verified via `file://`**, exercising the full broker → sandbox-target → content-process → renderer → JS pipeline on both browsers simultaneously. End-to-end `http` page fetch inside the test VMs is a current harness/network-profile limitation (not a product gap in the WoW64 broker fix) — live web browsing depends on the same guest networking that the `-5` runtime/crypto work addresses.
+- .NET Framework 4.5 enablement is in progress (MSXML/32-bit-COM installer wall cleared this release; the CLR itself is not yet supported — tracked for `-5`).
+
+### Changes since reactos-nitro 2026.10-3
+Same upstream base. This release adds the Claude Desktop / Electron render chain (win32k/user32/ntdll/Ob), 32-bit MSXML COM, Firefox 158 + sandbox-L1, and a kernel security/stability batch (DuplicateHandle EoP, tcpip type-confusion regression, FsRtl notify UAFs, quota-switch bugcheck, GDI size-math, ramdisk flags). Shipped as a cumulative over-base patch (3225 commits / 2436 non-merge over f53b1d15601) rather than a replayed topic stack (this window landed direct-to-main).
+
 ## reactos-nitro 2026.10-3
 
 **Tagged `nitro-2026.10-3`** (2026-10-22) at fork `main` [`92f4586f849`](https://github.com/tomassrnka/reactos/commit/92f4586f849d3e5bdc2538ff1e9374136b865721). A large security, stability and SMP point release on the same upstream base as 2026.10-2.

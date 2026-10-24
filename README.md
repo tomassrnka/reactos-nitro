@@ -29,7 +29,7 @@ See [UPSTREAM.md](UPSTREAM.md) for how reactos-nitro relates to upstream ReactOS
 
 ## Status
 
-Latest build: **`reactos-nitro-2026.10-3`** (2026-10-22), on upstream base `f53b1d15601`. Releases are currently delivered as private draft builds (amd64-with-WoW64 ISO, i386 ISO, source + patch series) pending the public-release gates; see [CHANGELOG.md](CHANGELOG.md) for per-release detail and known limitations.
+Latest build: **`reactos-nitro-2026.10-4`** (2026-10-24), on upstream base `f53b1d15601` — the app-compatibility release: Claude Desktop (Electron/Chromium) runs, renders, and connects online, and Firefox-ESR 32-bit + 64-bit render side-by-side on a single amd64+WoW64 system, plus a kernel security batch. Each release ships an amd64-with-WoW64 ISO, an i386 ISO, a source tarball, and a cumulative over-base patch; see [CHANGELOG.md](CHANGELOG.md) for per-release detail and known limitations.
 
 ## Highlights
 
