@@ -1,5 +1,7 @@
 # Benchmarks — reactos-nitro vs ReactOS master
 
+> **Not re-measured for 2026.10-5.** These numbers come from a development build that predates `nitro-2026.10-1` (see below) and have not been re-measured for this release; they do not reflect the Windows 10 identity default, the memory commit cap or other changes since.
+>
 > **DRAFT / preliminary.** These numbers were measured on a development build (batch 87, `23dd8f7e336`), **not** the tagged `2026.10-1` release, and will be re-run on the release build before launch. Two outliers (marked †) are large enough that they need an independent re-check. Read this as a direction, not final figures.
 
 Measured 2026-10-19 on one AMD EPYC 9254 host under QEMU/KVM, 4 vCPU / 2 GB, both sides built Release from the same sources.
@@ -52,7 +54,7 @@ _Note: upstream ReactOS has experimental NTFS write (off by default, partial, un
 
 ## Honest caveats
 
-- Preliminary build, not the release tag; re-run pending.
+- Preliminary pre-2026.10-1 dev build, not any release tag; not re-measured for 2026.10-5; re-run pending.
 - No amd64 A-vs-B (upstream amd64 doesn't install).
 - Upstream NTFS write (experimental, off by default) was not benchmarked against nitro's ntfsng; that comparison is pending.
 - The SMP comparison is upstream-uniprocessor vs nitro-multiprocessor.

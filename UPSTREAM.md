@@ -4,6 +4,8 @@ reactos-nitro tracks ReactOS master and merges it regularly. We keep our changes
 
 This is written in good faith from the public ReactOS commit history; it is our reading, not a statement from the ReactOS project.
 
+**Last synced with ReactOS master:** [`e46f4bb1a1e`](https://github.com/reactos/reactos/commit/e46f4bb1a1ea7c722f941231565144fe0c286d3e) (2026-10-25, weekly sync #4; 59 upstream commits since `f53b1d15601`). `nitro-2026.10-5` is built on this commit; the patch series applies to it unchanged.
+
 ## What upstream is actively working on that overlaps with us
 
 - **NTFS write and install.** Upstream has added experimental NTFS write and NTFS install support to its own `ntfs` driver (e.g. [#9316](https://github.com/reactos/reactos/pull/9316), [#9319](https://github.com/reactos/reactos/pull/9319), [#9700](https://github.com/reactos/reactos/pull/9700)) and is still improving it.

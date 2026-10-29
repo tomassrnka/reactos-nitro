@@ -6,7 +6,7 @@
 >
 > Like ReactOS itself, this is alpha-quality software. Don't use it on a machine or disk holding data you care about.
 
-**Last synced with ReactOS master:** [`f53b1d15601`](https://github.com/reactos/reactos/commit/f53b1d1560120c529763b18963fdee68f39118af) (2026-10-19, sync #3). We merge upstream regularly; this line tracks the most recent merge. (The `nitro-2026.10-1` release is based on the earlier [`ac1ab9e3043`](https://github.com/reactos/reactos/commit/ac1ab9e3043), 2026-10-18.)
+**Last synced with ReactOS master:** [`e46f4bb1a1e`](https://github.com/reactos/reactos/commit/e46f4bb1a1ea7c722f941231565144fe0c286d3e) (2026-10-25, sync #4). We merge upstream regularly; this line tracks the most recent merge. (`nitro-2026.10-5` is based on this commit; `nitro-2026.10-2` to `-4` on `f53b1d15601`; `nitro-2026.10-1` on the earlier [`ac1ab9e3043`](https://github.com/reactos/reactos/commit/ac1ab9e3043).)
 
 **Docs:** [CHANGELOG](CHANGELOG.md) · [BENCHMARKS](BENCHMARKS.md) · [UPSTREAM](UPSTREAM.md)
 
@@ -29,13 +29,14 @@ See [UPSTREAM.md](UPSTREAM.md) for how reactos-nitro relates to upstream ReactOS
 
 ## Status
 
-Latest build: **`reactos-nitro-2026.10-4`** (2026-10-24), on upstream base `f53b1d15601` — the app-compatibility release: Claude Desktop (Electron/Chromium) runs, renders, and connects online, and Firefox-ESR 32-bit + 64-bit render side-by-side on a single amd64+WoW64 system, plus a kernel security batch. Each release ships an amd64-with-WoW64 ISO, an i386 ISO, a source tarball, and a cumulative over-base patch; see [CHANGELOG.md](CHANGELOG.md) for per-release detail and known limitations.
+Latest build: **`reactos-nitro-2026.10-5`** (2026-10-29), on upstream base `e46f4bb1a1e` — the modern-app release: Windows 10 is the default reported identity; Chrome (software rendering) and Claude Desktop run; 32-bit Firefox renders at the default sandbox again (32-bit + 64-bit side by side); Firefox 158 and PowerShell 7 run; plus Task Scheduler 2.0, a guest-clock fix and a memory commit cap. Each release ships an amd64-with-WoW64 ISO, an i386 ISO, a source tarball, and the patch series; see [CHANGELOG.md](CHANGELOG.md) for per-release detail and known limitations.
 
 ## Highlights
 
-Over 520 fixes and several feature tracks on top of upstream ReactOS:
+Over 750 fixes and several feature tracks on top of upstream ReactOS:
 
-- **32-bit Windows programs on 64-bit ReactOS (WoW64).** Total Commander runs 32-bit and 64-bit side by side in one session, and Firefox ESR runs 64-bit; 32-bit Firefox launches but renders only with its content sandbox disabled (see [Known limitations](#known-limitations)). Upstream ReactOS has no WoW64.
+- **32-bit Windows programs on 64-bit ReactOS (WoW64).** Total Commander runs 32-bit and 64-bit side by side in one session, and Firefox runs 32-bit and 64-bit side by side at its default sandbox setting. Upstream ReactOS has no WoW64.
+- **Modern apps.** Windows 10 identity by default; Chrome (software rendering) and Claude Desktop run; Firefox 158; PowerShell 7; Task Scheduler 2.0; an Optional Features manager.
 - **NTFS read/write**, with a new driver built on the Linux kernel's `fs/ntfs` (imported from Linux v7.3-rc6), plus journal and power-cut recovery. NTFS is the default file system for new installs.
 - **Btrfs**: WinBtrfs 1.10 (upstream ships 1.8.1).
 - **Multi-processor support on x86 and amd64**, installed by default on ACPI machines. It is tested from 1 to 16 vCPUs, with multi-hour soaks on AMD and Intel hosts.
@@ -47,14 +48,19 @@ Over 520 fixes and several feature tracks on top of upstream ReactOS:
 
 A preliminary [BENCHMARKS.md](BENCHMARKS.md) (draft) compares reactos-nitro against upstream ReactOS.
 
-A full list of changes, one line per fix, is in [CHANGELOG.md](CHANGELOG.md) (draft for the first release).
+A full list of changes, one line per fix, is in [CHANGELOG.md](CHANGELOG.md) .
 
 ## Known limitations
 
 - WoW64 is amd64 only.
-- **Firefox sandbox.** On 64-bit, the sandbox process starts but its restrictions are **not** enforced on ReactOS. On 32-bit (WoW64), the sandbox broker cannot spawn Firefox's child processes, so with the sandbox at its default setting **32-bit Firefox opens but web pages stay blank**. To browse in 32-bit Firefox you must disable its content sandbox (`security.sandbox.content.level = 0`), which is a security downgrade. 64-bit Firefox renders normally.
+- **Firefox sandbox.** On 64-bit, the sandbox process starts but its restrictions are **not** fully enforced on ReactOS. 32-bit Firefox renders at the default sandbox setting.
+- **Software rendering only.** Chrome runs with software compositing (no DirectComposition, no hardware GPU acceleration).
+- **32-bit MFC applications** fail at their first window (WoW64 global-hook gap).
+- **Memory commit is capped at about physical RAM** until private memory is pageable; Firefox 128 x64 thrashes at the cap.
+- **.NET Framework 4.x** managed applications do not run yet.
+- Known open security hardening items (local-privilege class) remain; do not expose this to untrusted local users.
 - Some 32-bit applications leave redraw artifacts when dragged over other windows.
-- Firefox ESR 140 and later need components that ReactOS does not provide yet. ESR 128 is the tested version.
+- Tested Firefox versions: ESR 128 and Firefox 158. Newer versions are expected to work but are untested.
 - Everything in upstream ReactOS's own list of known issues also applies.
 
 ## Identifying a reactos-nitro build

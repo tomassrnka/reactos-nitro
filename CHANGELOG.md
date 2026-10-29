@@ -2,6 +2,410 @@
 
 reactos-nitro is an unofficial patch set on top of upstream ReactOS. It is not an official ReactOS release and is not affiliated with the ReactOS project. Newest entry first. All times UTC.
 
+## reactos-nitro 2026.10-5
+
+**Tagged `nitro-2026.10-5`** (2026-10-29) at fork `main` [`a39f5b08cd9`](https://github.com/tomassrnka/reactos/commit/a39f5b08cd93d8b30b6d8e4de3129725119ac671). The modern-app release: **Windows 10 is now the default reported identity**, **Chrome and Claude Desktop run** (Chrome with software rendering), **32-bit Firefox renders at the default sandbox again** (32+64-bit side by side), **Firefox 158** and **PowerShell 7** run, and the guest gets a real Task Scheduler, a correct clock and a memory commit cap that stops runaway apps crashing the guest.
+
+| Item | Value |
+|---|---|
+| Release tag | `nitro-2026.10-5` → [`a39f5b08cd9`](https://github.com/tomassrnka/reactos/commit/a39f5b08cd93d8b30b6d8e4de3129725119ac671) |
+| ReactOS base | upstream [`e46f4bb1a1e`](https://github.com/reactos/reactos/commit/e46f4bb1a1ea7c722f941231565144fe0c286d3e) (2026-10-25, weekly sync #4; 59 upstream commits since the `f53b1d15601` base of 2026.10-2/-3/-4) |
+| Patch series | 52 topic patches on `e46f4bb1a1e` (cumulative, whole series); series head `7d53f83f4ef`; applied tree `aa5dae057201` — verified identical to the release commit. This release's delta over 2026.10-4: 229 changes (223 branch merges + 6 direct commits) plus the upstream sync. |
+| Artifacts | amd64-with-WoW64 ISO, i386 ISO, source tarball, patch series |
+
+| Artifact | Size | sha256 |
+|---|---|---|
+| reactos-nitro-2026.10-5-amd64-wow64-Release.iso | 650117120 | `ee72da82d10e290df04fecacd9ae5b437127f2316908d553550f3780c2d99dfa` |
+| reactos-nitro-2026.10-5-i386-Release.iso | 417333248 | `9d52822d9599107a5d9ac04c7a9e3a192d50fe9dd98a30aa596eaa17d977ab2a` |
+| reactos-nitro-2026.10-5-src.tar.gz | 124539032 | `aa86c068fe886260f0104d31802d28cf2bbe067d9cc266da5ab5ba8a417ec8e4` |
+| nitro-2026.10-5-patch-series.tar.gz | 30932418 | `68efb3b52dd590bfac03eb52069bd1bf964d8582230305be96cf322e5949eafc` |
+
+### Highlights
+- **Windows 10 identity by default** (10.0.19045): modern apps that gate on `VersionNT` / Win10 now launch. Backed by a version-gated NT6–Win10 API parity batch (UTF-8 `WideCharToMultiByte`, user32/win32k, shell32, object manager, named pipes, kernelbase exports, Win8 pointer-input exports, `NtOpenKeyEx`, `ProcessHandleTable`, TokenElevation, XState/CONTEXT_EX).
+- **Chrome works and is stable for long sessions** — with software rendering (`dcomp.dll` is absent, so Chrome runs with software compositing, set by default policy). Stock Chrome 156 installs (including the enterprise MSI), paints and browses remote sites with no flags; Chrome 3-hour soaks ran with no crashes; QUIC, `GetAddrInfoEx`, NLA network-change, registry change-notification and registered-wait fixes behind it.
+- **Claude Desktop works**: installable from the feature manager, renders and connects online, sandboxed and unsandboxed; paints reliably under host load (winmm `timeGetTime` fix); stable in 3-hour soaks.
+- **Firefox 32-bit renders at the DEFAULT sandbox again** — "32-bit + 64-bit side by side" is true at default settings (no `security.sandbox.content.level=0` workaround needed). Firefox 158 x86 and x64 start and render; Firefox 128 x64 renders with the sandbox on.
+- **PowerShell 7 runs** (.NET 8 CoreCLR): XState/CONTEXT_EX context API, IL-only AnyCPU assembly loading, `FlushProcessWriteBuffers`, `FindNLSStringEx` and locale fixes.
+- **Task Scheduler 2.0** (`taskschd.dll`, `schedsvc`, triggers) — the Chrome auto-update task fires; real COM surrogate (`dllhost.exe`).
+- **Guest clock fix**: the TSC frequency is taken from the hypervisor, drift ≤0.004% under heavy load (was tens of percent).
+- **Memory commit cap**: commit is limited to what RAM and pageable memory can back, so a runaway app gets allocation failures instead of crashing the whole guest; critical processes keep a reserve.
+- **Optional Features / feature manager** (Control Panel + `featmgr`): install/enable/disable/uninstall with dependencies, software tier (rapps import), GPU pack (lavapipe/llvmpipe) and WinFsp as add-ons; first-login default-browser chooser.
+- **WinFsp file systems**: WinFsp 2.x installs (MSI, including its 32-bit custom actions under WoW64) and mounts user-mode file systems on a drive letter and UNC paths. The memfs sample is verified; killing a file-system server cleanly unmounts it and a remount succeeds. Also available as an Optional Feature.
+- **Graphics**: Mesa software OpenGL (llvmpipe) and lavapipe Vulkan with an in-box Khronos Vulkan loader on amd64; virtio-gpu 2D display driver.
+- **Four new app-compat DLLs**: `tbs`, `wer`, `ndfapi`, `wevtapi`.
+- **Many WoW64, networking and kernel fixes** — WoW64 thunk batches (AcceptEx/ConnectEx, LSA, registry notify, console), NDIS/tcpip lifetime and request-serialization fixes, UDP/Winsock semantics, Vista IP-helper APIs, KDBG/NMI robustness on SMP, plus a security hardening batch (described generically below).
+
+### What reactos-nitro adds on top of ReactOS
+#### OS identity and API parity
+Win10 as the default reported identity (`VERBUMP_TIER=100`) with a version-gated parity layer that keeps NT 5.2 behaviour safe; NT6+/Win8+ semantics in the object manager, named pipes, section mapping, `NtClose`, shell32, appshim/apphelp, kernelbase (≈720 forwarded exports, a real import library, AppContainer moniker APIs), user32 pointer-input APIs and the CRT/ucrtbase.
+#### Application compatibility
+Chrome (installer, updater, sandbox, QUIC, omnibox/registry-watch, renderer delay-load), Claude Desktop (feature-manager package, per-machine wined3d settings, paint reliability), Firefox (32-bit sandbox under WoW64, 158 x86 dependencies, about:support), PowerShell 7 (CoreCLR prerequisites), a COM surrogate host, Task Scheduler 2.0, and the registered-wait thread pool reworked to Windows semantics (shared wait threads, pool dispatch).
+#### WoW64
+New thunks (`NtOpenKeyEx`, `NtNotifyChangeKey`, AFD AcceptEx/ConnectEx super-accept/connect, datagram receive, LSA logon/sessions, console), 32-bit COM registration, more SysWOW64 DLLs (`cfgmgr32`, `avrt`, `credui`, `oledlg`, `hid`, schannel, games/media), 64-bit-wide NtUserPfn tables, and 32-bit Chromium-style sandboxes.
+#### Networking
+Reference-counted IP interfaces and neighbour entries, NDIS request serialization/unbind/halt fixes, UDP zero-length/connect/`getsockname` semantics, `WSARecvMsg` with `IP_PKTINFO`, refused-connect `SO_ERROR`, `NotifyIpInterfaceChange`/`NotifyRouteChange2`, Vista interface and unicast tables, NLA provider, ChaCha20-Poly1305 client suites and TLS error codes.
+#### Kernel, memory and SMP
+Commit cap and critical-process tier, guest timekeeping, ExInterlocked/IPI deadlock fix, KDBG/NMI freeze fixes on amd64/x86 SMP, I/O-manager port-request cancel on close, PnP disable/re-enable persistence, process-quota and cache-manager races, WinFsp support: MUP UNC paths and ECP delivery, FsRtl/Rtl exports, reparse-point and junction handling, and recovery when a file-system server is killed (the terminating-thread APC deadlock fix).
+#### Graphics
+Mesa llvmpipe/lavapipe + Vulkan loader (amd64), virtio-gpu 2D XDDM driver, wined3d machine-wide configuration.
+#### Setup, services and shell
+SCM failure actions, bitness-independent service status, real surrogate/RPCSS context rundown, default-browser chooser and `UserChoice` handling, `.lnk` property-store persistence, jump-list COM classes, optional-features CPL.
+
+## Bug fixes
+
+229 changes: one line for each of the 223 branches merged into Nitro main and each of 6 small changes committed directly on main since `nitro-2026.10-4`, grouped by area (click an area to open it). Security-related fixes are described generically on purpose. This is the delta of this release only; it includes everything from `nitro-2026.10-4` (whose section is below). The weekly upstream ReactOS sync (0036d5334c8) is not listed here.
+
+<details><summary>Application compatibility (Chrome, Claude Desktop, Firefox) (33 fixes)</summary>
+
+- advapi32: Chrome enterprise MSI installs run silently; the service-control protocol is now bitness-independent for 32-bit services. ([c783084710a](https://github.com/tomassrnka/reactos/commit/c783084710a2ee3bf7935d3a44754479341aa456))
+- advapi32: GetFirmwareType + SystemBootEnvironmentInformation + AddConditionalAce ([8c15c304902](https://github.com/tomassrnka/reactos/commit/8c15c304902155a6d115843a4a4a42cd84ec7a97))
+- boot bootdata: ship 32-bit cfgmgr32, avrt, credui in SysWOW64 (Firefox 158 x86 starts) ([5217dc8d9d0](https://github.com/tomassrnka/reactos/commit/5217dc8d9d00a4bd71d79f9480d964efcaa9bbe7))
+- boot bootdata: ship 32-bit oledlg.dll in SysWOW64 ([200cf391e58](https://github.com/tomassrnka/reactos/commit/200cf391e58bd6d5bdeca4cf39323dbe864dc10f))
+- browserchooser: first-login default-browser chooser ([243fc91265a](https://github.com/tomassrnka/reactos/commit/243fc91265af543318c3540b4f4e3ef88733e083))
+- browserchooser: don't block unattended setup on the chooser ([ba1f2a51a17](https://github.com/tomassrnka/reactos/commit/ba1f2a51a17dfe6a249c7b6111e222dd0da98dd3))
+- browserchooser: wait for network before RAPPS Firefox install ([fd161017941](https://github.com/tomassrnka/reactos/commit/fd161017941c2d18b8c498bf7b56e5c693617374))
+- combase: COM surrogate: review fixes for dead-server retry, external locks and reference tracking at disconnect. ([7a1cec5a965](https://github.com/tomassrnka/reactos/commit/7a1cec5a96565a89a569961932f8a3173d9f2ba2))
+- DLLHOST: real COM surrogate (was a stub): /Processid:{CLSID}, hosts the in-proc server; shipped in SysWOW64 too ([7632937a1f2](https://github.com/tomassrnka/reactos/commit/7632937a1f238046db08c781fb8408e9fa6ea7e5))
+- featmgr: Feature manager: add a 'claude-desktop' catalog entry that downloads Anthropic's official package at install time (checksum-verified). ([d2637c3b88f](https://github.com/tomassrnka/reactos/commit/d2637c3b88f76051d45e5f86f1fa3231fb928ccf))
+- kernel32: honour PROC_THREAD_ATTRIBUTE_JOB_LIST (Chrome sandbox registered-wait leak) ([31fcd2ead00](https://github.com/tomassrnka/reactos/commit/31fcd2ead006c9ea1086e81ee65cc2f1203a8b4d))
+- kernel32: PowerShell 7 runs: XState/CONTEXT_EX context API, IL-only AnyCPU assembly loading, FlushProcessWriteBuffers, FindNLSStringEx and locale fixes. ([ef0a0af93ae](https://github.com/tomassrnka/reactos/commit/ef0a0af93aed4db4fafd94fdf0cad7e0233664ea))
+- kernelbase: fix Chrome renderer 'Aw, Snap' crashes: QueryUnbiasedInterruptTimePrecise now resolves in the locked-down renderer ([7dd216cf820](https://github.com/tomassrnka/reactos/commit/7dd216cf820d97a46989d83e5684d50230fcb65c))
+- msafd: msafd WSARecvMsg (Chrome QUIC works) ([26ed0cd40be](https://github.com/tomassrnka/reactos/commit/26ed0cd40be43689b783416775800f498fd30ff4))
+- npfs: record the pipe server process ID and implement GetNamedPipeServerProcessId. ([31ef7501f8d](https://github.com/tomassrnka/reactos/commit/31ef7501f8d62072a3d2edce29667d6be568c882))
+- NtNotifyChangeKey: NtNotifyChangeKey resets the caller's event when arming a request, fixing a Chrome omnibox busy loop. ([6cbe625b8ab](https://github.com/tomassrnka/reactos/commit/6cbe625b8ab880c3441865917de17e7490c0478f))
+- ntoskrnl config: Implement registry change notification (RegNotifyChangeKeyValue/NtNotifyChangeKey), including the WoW64 thunk. ([fd0898cf566](https://github.com/tomassrnka/reactos/commit/fd0898cf566a79715c5c1a602cb2f08fb5b5834c))
+- ntoskrnl ex: Terminate the SystemProcessInformation list correctly, fixing a Firefox about:support crash. ([deae7cf6e5c](https://github.com/tomassrnka/reactos/commit/deae7cf6e5ca517852e7f5d92a635778bd0044db))
+- rpcrt4: Chrome 156 installs, paints and browses with no flags; default policy selects software compositing, plus supporting WoW64 and RPC fixes. ([35cef67c493](https://github.com/tomassrnka/reactos/commit/35cef67c49351c3c3f2838b4bd2c71096c57fc41))
+- RPCSS: RPCSS and COM: purge a dead surrogate's class registrations and retry dead-server activation with a fresh launch. ([cfcbf5f8cba](https://github.com/tomassrnka/reactos/commit/cfcbf5f8cba22413ffce2f48659d8e4000383c30))
+- rtl: fix a sandboxed-browser content-process crash (Firefox 128 renders with the sandbox on) ([e8b88d0afc8](https://github.com/tomassrnka/reactos/commit/e8b88d0afc8831d8e36b63d268df9e19767b267e))
+- rtl: registered-wait callbacks are wrapped in SEH so cleanup always runs and an exception cannot leak a wait. ([da636fca9f9](https://github.com/tomassrnka/reactos/commit/da636fca9f9f796e9b80f33d458c6b316571b6b1))
+- rtl: registered-wait callbacks run in the pool as Windows (oracle-measured semantics) ([85ed5249d4b](https://github.com/tomassrnka/reactos/commit/85ed5249d4bc92228de331cbef40b3016ddc9e7e))
+- rtl: registered waits share wait threads, up to 63 waits to a thread ([b69d22e2da4](https://github.com/tomassrnka/reactos/commit/b69d22e2da42d6fb66673aaef1ce4677f1e14343))
+- rtl: registered waits no longer use the capped worker pool; they run on their own wait threads. ([eca063879b3](https://github.com/tomassrnka/reactos/commit/eca063879b3d32a84967eb46c62cbf61a92ce536))
+- SHELL32: ShellExecute/AssocQuery honour the user's default-browser choice for URL protocols; browser chooser gains /settings ([39fbf2bd787](https://github.com/tomassrnka/reactos/commit/39fbf2bd787f674598ed0200e6e83624774170da))
+- win32k: SC_MAXIMIZE on a hidden top-level window maximizes it without showing it (Chrome --start-maximized). ([fabb257e3df](https://github.com/tomassrnka/reactos/commit/fabb257e3dfeccefaa4c55051fe535879f2f6b57))
+- win32k: non-interactive desktop heap now matches Windows, fixing Chrome updater and dllhost DLL-init failures. ([6837ee878dc](https://github.com/tomassrnka/reactos/commit/6837ee878dcd103daa15c85ce23012be50ccbce6))
+- win32ss user: SC_MAXIMIZE/SC_MINIMIZE are no-ops when already in that state (Windows); revert keep-hidden ([b56fbda2f2a](https://github.com/tomassrnka/reactos/commit/b56fbda2f2ae7a1873c26d6c2c9ffd672c971c0a))
+- wined3d: read machine-wide Direct3D settings when the per-user value is absent, so every user gets a painting Claude window. ([e3fe00c267a](https://github.com/tomassrnka/reactos/commit/e3fe00c267ae3e12250314477fae02cf0b0e3303))
+- winmm: timeGetTime always reads interrupt time as Windows does; it stepped backwards and crashed Chromium. ([7bb2ab20134](https://github.com/tomassrnka/reactos/commit/7bb2ab2013480bbcd87ee5010f64fbc95b84e0bd))
+- wow64: 32-bit Chromium-style sandboxes work under WoW64 (Firefox 32-bit renders at the default sandbox) ([f455dc3d462](https://github.com/tomassrnka/reactos/commit/f455dc3d462fff7632542c310060345d921ecb97))
+- ws2_32: implement GetAddrInfoExW/FreeAddrInfoEx(W) + fix GetAddrInfoW AI_CANONNAME heap under-alloc ([7f835d77b23](https://github.com/tomassrnka/reactos/commit/7f835d77b232615984470c3d398deaf81ec284c9))
+
+</details>
+
+<details><summary>Windows 10 identity and NT6/Win8+ parity (29 fixes)</summary>
+
+- afd: afd.sys accepts both NT5 and NT6 AFD_CREATE_PACKET layouts ([00ec0eb4971](https://github.com/tomassrnka/reactos/commit/00ec0eb49717f1fa9bd30585e03f1426b1d0f453))
+- appcompat: appshim and apphelp: Win8 and later conformance. ([f2e3d7fc4ac](https://github.com/tomassrnka/reactos/commit/f2e3d7fc4ac452661b6c3d494cc04a60a7c995f8))
+- boot bootdata: Flip main to the Windows 10 identity by default. ([7605b5c9813](https://github.com/tomassrnka/reactos/commit/7605b5c98130520403fc1970821e877e6026ee1f))
+- boot bootdata: Add the VC++ runtime registry keys and ucrtbase version information. ([5c4581a31bf](https://github.com/tomassrnka/reactos/commit/5c4581a31bf1c2b2adcd17d10e81a7f6672efcd2))
+- include: Make the Windows 10 identity data (version strings and registry values) consistent. ([0e34518569f](https://github.com/tomassrnka/reactos/commit/0e34518569f4004e520a9dc1bd7e5417dd012ab7))
+- kernelbase: implement the AppContainer SID and moniker mapping APIs as Windows does. ([0ccd81a148d](https://github.com/tomassrnka/reactos/commit/0ccd81a148d13e2caf64047e5d9e76b2013652f1))
+- kernelbase: forward ~720 kernelbase.dll exports to kernel32 ([f44d5b597b0](https://github.com/tomassrnka/reactos/commit/f44d5b597b0647c8f66fd9cb0e1aca0397e99485))
+- kernelbase: build a real import library so shlwapi and vbscript load kernelbase.dll statically. ([24184568504](https://github.com/tomassrnka/reactos/commit/241845685040c1bf9b8ed68ab42c89cc04e2eee2))
+- msvcrt: Executive, process, memory, I/O and CRT: 36 Windows 10 conformance fixes. ([cefc93b26a3](https://github.com/tomassrnka/reactos/commit/cefc93b26a38e4368f9e3bfb7922062de07c93dd))
+- npfs: cache the Vista-or-later check at driver entry and add a prefix-shadow regression test. ([cbb067edbfa](https://github.com/tomassrnka/reactos/commit/cbb067edbfa7de79115d8c00115364b6fb211506))
+- npfs: Vista and later named-pipe semantics. ([b3c3631e1ac](https://github.com/tomassrnka/reactos/commit/b3c3631e1ac411717d5f42ffdeee4aae3a07e71d))
+- ntdll: Windows 10 object-manager parity. ([7cedf53f358](https://github.com/tomassrnka/reactos/commit/7cedf53f358eec5422e45fec32f8f5ec9b9e3251))
+- ntdll: Pick the highest supported-OS version a manifest declares at or below Windows 7, so Burn/WiX installers no longer fail. ([4ff58178197](https://github.com/tomassrnka/reactos/commit/4ff5817819792fcd70517da563cef8ce2ce95a33))
+- ntdll: RtlGetNtVersionNumbers honors effective process version ([2ebe6db0fc1](https://github.com/tomassrnka/reactos/commit/2ebe6db0fc188ebcaa0e3d0ee4e5c6461582b2c3))
+- ntoskrnl ex: NtSetSystemInformation and SetWindowPlacement: NT 6.1+ parity. ([d54919563b4](https://github.com/tomassrnka/reactos/commit/d54919563b42b33b18e7050b04871c8dd2648b24))
+- ntoskrnl ex: RtlCaptureStackBackTrace NULL buffer, Win10 NtClose of pseudo handles, ExRaiseHardError unknown options ([27178a636e4](https://github.com/tomassrnka/reactos/commit/27178a636e4dd38a23723836f83b96059f68d6db))
+- ntoskrnl kd64: NtQuery/SetDebugFilterState default mask for out-of-range ComponentId ([997f709de32](https://github.com/tomassrnka/reactos/commit/997f709de3246be11d593cb05c07b538504d202a))
+- ntoskrnl mm: section creation and map-view validation as Windows 8+/10 ([8f55b0bb2b0](https://github.com/tomassrnka/reactos/commit/8f55b0bb2b0f103980c75ac1d585239f8108992b))
+- ntoskrnl mm: ntoskrnl mm: return plain STATUS_INVALID_PARAMETER for an invalid ZeroBits value at Windows 10. ([f0abb540e39](https://github.com/tomassrnka/reactos/commit/f0abb540e394756e5c39be502d9e3eac3a575ce5))
+- ntoskrnl se: NtQueryInformationToken(TokenHasRestrictions) ([70e62f360d1](https://github.com/tomassrnka/reactos/commit/70e62f360d1e68b95c2d0275bece0b4168a7e12c))
+- ntoskrnl se: Implement the TokenElevation and TokenElevationType token information classes with Windows semantics. ([f4709241c60](https://github.com/tomassrnka/reactos/commit/f4709241c60cf0065f9d1c0a68591bf65c6b1bfd))
+- shell32: CIDLData empty-GetData status + comment nits ([3be9b0eacf5](https://github.com/tomassrnka/reactos/commit/3be9b0eacf5691f01848bd83f224efbf80d4e4b3))
+- shell32: NT6+ behaviours. ([39db2208da8](https://github.com/tomassrnka/reactos/commit/39db2208da8c73bb63bc4a88a26eb326c8cf3c8f))
+- shlwapi: fix string-function crashes (parser and CRT streamout). ([d527453c843](https://github.com/tomassrnka/reactos/commit/d527453c843cb61b0ec81ad1f743cf709d49dc01))
+- user32: fix InternalGetWindowIcon, CopyImage stretching and a non-client-size result. ([ed9c762b93c](https://github.com/tomassrnka/reactos/commit/ed9c762b93cea6d9c9243804ff01654f4206e0da))
+- user32: gate five Win8 pointer exports at 0x601 and document ChangeWindowMessageFilterEx behaviour. ([007f31a74a5](https://github.com/tomassrnka/reactos/commit/007f31a74a53ba9f5da2a4124ecba340588c0582))
+- WideCharToMultiByte: Vista and later UTF-8 semantics, plus NLS fixes. ([3ce1faee3c6](https://github.com/tomassrnka/reactos/commit/3ce1faee3c60dcbc2bb076a5922ffa896d917415))
+- win32ss user: user32 and win32k: Vista to Win8 window, class and character-handling parity, version-gated. ([5acaebcaf8d](https://github.com/tomassrnka/reactos/commit/5acaebcaf8d6434f273518f21886905ed228effa))
+- win32ss user: Win8 pointer/input/window-helper user32 exports (0x601 floor) ([ecd015a35a6](https://github.com/tomassrnka/reactos/commit/ecd015a35a6b48e69fbc903cf0c93c700d14dc75))
+
+</details>
+
+<details><summary>Optional Features / feature manager (7 fixes)</summary>
+
+- featmgr: Optional Features / addon manager (first slice) ([06ad7ec9d10](https://github.com/tomassrnka/reactos/commit/06ad7ec9d10558dd103896bdda3c576826132750))
+- featmgr: optfeatures two-tier tabs + Install/Enable/Disable/Uninstall + state/guards ([c44075866fa](https://github.com/tomassrnka/reactos/commit/c44075866fa9392db2dd9bfceff0b68cf4695714))
+- featmgr: featmgr dependency-aware disable + real uninstall + queryable state + CLI filters ([70136914b1e](https://github.com/tomassrnka/reactos/commit/70136914b1e1426e87c446dea08d7f5e4c4088be))
+- featmgr: /import-rapps converter + software-tier schema/state/install ([29e60150044](https://github.com/tomassrnka/reactos/commit/29e60150044d05a45835ae47cd10ee51ce56f93b))
+- featmgr: lavapipe GPU pack as an installable Optional Feature ([342b42976f4](https://github.com/tomassrnka/reactos/commit/342b42976f4a78dc7e3606ac93f687678099aed4))
+- featmgr: WinFsp as a functional OS-feature addon ([c3c52e04970](https://github.com/tomassrnka/reactos/commit/c3c52e04970af0a485e716db22a58ed11cfe86d7))
+- optionalfeatures: Optional Features in Control Panel (optionalfeatures.cpl + appwiz hook) + Windows-native features dialog ([98686a78674](https://github.com/tomassrnka/reactos/commit/98686a78674c96092fbc36d9f021beac127142fa))
+
+</details>
+
+<details><summary>Graphics (Mesa, lavapipe, Vulkan, virtio-gpu) (6 fixes)</summary>
+
+- 3rdparty: lavapipe/llvmpipe as the default GPU (amd64) ([e718b3cd68e](https://github.com/tomassrnka/reactos/commit/e718b3cd68ee601550a6b021eafa85a6e85d2eee))
+- 3rdparty: Ship Mesa softpipe as the default OpenGL driver and add llvmpipe and lavapipe Vulkan as an optional image component. ([0d301733f35](https://github.com/tomassrnka/reactos/commit/0d301733f35a25f23d7ffe051df654f846ede604))
+- 3rdparty: Ship the in-box Khronos Vulkan loader (v1.4.366), dispatching to llvmpipe/lavapipe. ([0a9736f882d](https://github.com/tomassrnka/reactos/commit/0a9736f882d4c0ac8281896c755509f9d4aeeb1e))
+- drivers: fix ([70d1b523c8d](https://github.com/tomassrnka/reactos/commit/70d1b523c8d8e1eb865406b59f8198f68d544952))
+- featmgr: featmgr Removable flag; lavapipe-pack non-removable base component ([4540d5d6e54](https://github.com/tomassrnka/reactos/commit/4540d5d6e544a888c75967f48dba039c862886d5))
+- win32ss drivers: Add a virtio-gpu 2D display driver (XDDM miniport) that works with the stock framebuffer driver. ([da04826afcc](https://github.com/tomassrnka/reactos/commit/da04826afcc338f5dee594c9cce09eb936435b1b))
+
+</details>
+
+<details><summary>Kernel: Ke, HAL and amd64 (11 fixes)</summary>
+
+- HAL: take the TSC frequency from the hypervisor when it reports one (guest clock drift fix; <=0.004% under heavy load) ([cfa6f71705f](https://github.com/tomassrnka/reactos/commit/cfa6f71705fc79affa6148ed9e2eb4f29b0cab71))
+- KD: no time-slip DPC before debugger init, and KdSystemDebugControl is inactive without a debugger. ([12c30bcbf14](https://github.com/tomassrnka/reactos/commit/12c30bcbf14b1b848cc478a5561f6e41fdd36c26))
+- KDBG: thread attach and backtrace now work on amd64 and stop safely on bogus frames. ([08ada49d0d2](https://github.com/tomassrnka/reactos/commit/08ada49d0d2afb46b827e8f6f76842a5d29d1b90))
+- Ke: spin on a busy ExInterlocked lock with the caller's interrupt state, fixing an IPI deadlock. ([085c7098311](https://github.com/tomassrnka/reactos/commit/085c7098311292eb98f236efc43bd965526797b7))
+- ntoskrnl kd64: !gdi.* KDBG commands print through KDBG and no longer hang ([db7ef607da1](https://github.com/tomassrnka/reactos/commit/db7ef607da1bb883d457d989d19185f91281e902))
+- ntoskrnl ke: tolerate repeated and simultaneous NMIs while the debugger freezes processors ([271f83b4fb3](https://github.com/tomassrnka/reactos/commit/271f83b4fb35f226b3b609e2556b57f3e31194d9))
+- ntoskrnl ke: fix debugger freeze hangs when NMIs arrive during a session on amd64 SMP ([615b10d55e8](https://github.com/tomassrnka/reactos/commit/615b10d55e8b5a11c571729c0b267902334ea930))
+- ntoskrnl ke: NMI grace window calibrated, separate grace-drop counter, port guard, KeFreezeNmiDpc test ([6208ac3bcd7](https://github.com/tomassrnka/reactos/commit/6208ac3bcd7595a5cc87d58c506257945d1413a5))
+- ntoskrnl ke: Set the bugcheck-callback checksum as Windows does, so non-Reason bugcheck callbacks run. ([d48aeca4aa1](https://github.com/tomassrnka/reactos/commit/d48aeca4aa1850857009d4af9e37739e9e7e27e1))
+- ntoskrnl ke: AtDpcLevel spinlock IRQL checks only on checked builds, as Windows ([28a8220c554](https://github.com/tomassrnka/reactos/commit/28a8220c554188da26f84ac3700010c314dffa5b))
+- win32ss user: win32k registers its KDBG callback once (DriverEntry) ([ee2a10fc5ff](https://github.com/tomassrnka/reactos/commit/ee2a10fc5ffbd13752b4f4d1d15c4778c0c5072a))
+
+</details>
+
+<details><summary>Kernel: Mm and Cc (6 fixes)</summary>
+
+- cc: fix a race on duplicate buffer-control blocks taking an exclusive pin. ([849db3bac95](https://github.com/tomassrnka/reactos/commit/849db3bac954d4adace5981f2cd12c829e524380))
+- cc: CcPinMappedData no longer unpins a NULL buffer-control block. ([84f17b87891](https://github.com/tomassrnka/reactos/commit/84f17b8789146c07b8776cb1b5f49b7f9e037732))
+- ntoskrnl cc: fix two regressions from earlier hardening (cache-manager reference count, message-queue callback leak) ([f9ec3197a60](https://github.com/tomassrnka/reactos/commit/f9ec3197a60f1ba996235e02ed9ec487390b319b))
+- ntoskrnl cc: serialize Cc BCB PinCount under BcbSpinLock ([f57ab4c50ac](https://github.com/tomassrnka/reactos/commit/f57ab4c50ace0890b0b5be8fcb1037538d7e23b1))
+- ntoskrnl mm: Memory manager: commit only what RAM and pageable memory can back, so runaway apps fail allocations instead of crashing the guest. ([224390a00e2](https://github.com/tomassrnka/reactos/commit/224390a00e2488d507ebc15c6b8a5b8b35181641))
+- ntoskrnl mm: allow owner reprotect of PEB/TEB NoChange VADs ([bc5e07ac90c](https://github.com/tomassrnka/reactos/commit/bc5e07ac90c7a9edbed127ce25469b0a3ef1ebda))
+
+</details>
+
+<details><summary>Kernel: Ob, Se, Ps, Ex and registry (7 fixes)</summary>
+
+- NtFilterToken: SIDs to disable now become deny-only as on Windows. ([28b13e31eb2](https://github.com/tomassrnka/reactos/commit/28b13e31eb232eab0e0508eaa3fa498e9994a70e))
+- ntoskrnl config: implement NtOpenKeyEx / ZwOpenKeyEx ([0c3249c2299](https://github.com/tomassrnka/reactos/commit/0c3249c229940d30ffacb624607a5a124328797c))
+- ntoskrnl ex: add NOHANDLECACHE boot option as a handle-cache kill-switch ([c4c7cedf479](https://github.com/tomassrnka/reactos/commit/c4c7cedf479cc3690f47ed5990803fec99436b26))
+- ntoskrnl include: implement NtQueryInformationProcess(ProcessHandleTable) ([52b2ec398a9](https://github.com/tomassrnka/reactos/commit/52b2ec398a9f9fa7b718e4d4300080624dad182c))
+- ntoskrnl ob: Restore Windows DuplicateHandle access-widening semantics (corrects a 2026.10-4 regression) and apply security descriptors given at creation. ([f514b1afe11](https://github.com/tomassrnka/reactos/commit/f514b1afe11dfa69fc345612bd8bd0c148653e32))
+- ntoskrnl ps: PspCreateThread no longer wipes the process granted-access mask ([d3687656b8d](https://github.com/tomassrnka/reactos/commit/d3687656b8d1db5f1ff0eac63385cb5be477f197))
+- PipGetDriverTagPriority: validate hive-supplied driver group-order data instead of asserting (hardening) ([e0871a89792](https://github.com/tomassrnka/reactos/commit/e0871a89792cff7f51fd43e882d95c649bf7ddf9))
+
+</details>
+
+<details><summary>I/O manager and file-system libraries (11 fixes)</summary>
+
+- I/O: limit a single MDL to 64 MB on 32-bit systems (restores Windows behaviour for large unbuffered writes on i386; 64-bit unchanged). ([71b0d80ee81](https://github.com/tomassrnka/reactos/commit/71b0d80ee81d5427eb460136e11324dd2c711b5b))
+- kernel32: CreateFile makes a directory for POSIX+DIRECTORY+CREATE_NEW ([8f17dce29c8](https://github.com/tomassrnka/reactos/commit/8f17dce29c8b551a733b0286aeac17cd37a81c50))
+- msi: 1/2): 32-bit MSI custom actions via WoW64 CA server + reparse-point FSCTL passthrough ([5a15e7673c4](https://github.com/tomassrnka/reactos/commit/5a15e7673c4cffc138ea7f0822550ec632f49d87))
+- mup: WinFsp UNC paths + ECP delivery ([d24582ebe9e](https://github.com/tomassrnka/reactos/commit/d24582ebe9e8703b32116f435cf4567f0346af9a))
+- ntoskrnl fsrtl: WinFsp enablement (kernel/Rtl exports) — WinFsp mounts ([75ebde4a688](https://github.com/tomassrnka/reactos/commit/75ebde4a68857b59a9891a10f598c9662f41051d))
+- ntoskrnl io: Cancel a process's port-only requests when it closes its last handle. ([354a3fecc14](https://github.com/tomassrnka/reactos/commit/354a3fecc14aadb8bdcc1bbed80cd4e697d1664e))
+- ntoskrnl io: keep a disabled device's node so it can be enabled again ([d265af14616](https://github.com/tomassrnka/reactos/commit/d265af14616b3ac987b30704793804829f846370))
+- PnP: a disabled device stays disabled across reboot, and state changes require an administrator. ([9dfc9efc68e](https://github.com/tomassrnka/reactos/commit/9dfc9efc68e99c0a9ddbe19f3dddd89864e1d179))
+- PnP: read the driver tag priority from the correct GroupOrderList key. ([2f0d6b50d0e](https://github.com/tomassrnka/reactos/commit/2f0d6b50d0e4ac0f81dfc82ddec1326f60387ebe))
+- tests: add an ntfsng reparse-point routing regression test. ([ea137543c13](https://github.com/tomassrnka/reactos/commit/ea137543c1392e78882d176275c486fe59f7144f))
+- WinFsp: alert a terminating thread out of an alertable wait so its exit APC runs, fixing a hang when a file-system server is killed. ([a0e34195281](https://github.com/tomassrnka/reactos/commit/a0e34195281933d14281f06e1b0e644bf14fe438))
+
+</details>
+
+<details><summary>win32k, GDI and USER (16 fixes)</summary>
+
+- tests: positive-control tests and logging for the message-handling hardening. ([1d4abd09ad5](https://github.com/tomassrnka/reactos/commit/1d4abd09ad5aa279c36c662c20e120143add29fc))
+- win32k: fix a memory-safety bug in hook-chain teardown ([e855f0a5c48](https://github.com/tomassrnka/reactos/commit/e855f0a5c485036db60799f245e1aa568169df75))
+- win32k: fix a memory-safety bug in hook installation ([a98f19b446c](https://github.com/tomassrnka/reactos/commit/a98f19b446cc8a19e0daac9691dbbd81018d4364))
+- win32k: validate window-position message parameters at the syscall boundary ([b207c4f4f35](https://github.com/tomassrnka/reactos/commit/b207c4f4f354598490e86f97fc2b08ce4dee8a72))
+- win32k: menu state hygiene on destroy and focus tracking ([4c8b1be1d4e](https://github.com/tomassrnka/reactos/commit/4c8b1be1d4ee59b46977f960b523707c8db628ee))
+- win32k: menu, hook and class hardening ([f78f862089b](https://github.com/tomassrnka/reactos/commit/f78f862089b3df23c7e6f49d197dda501f467985))
+- win32k: fix a scroll-bar subclassing regression introduced by the hardening ([60e7287ae62](https://github.com/tomassrnka/reactos/commit/60e7287ae62e06139082dc6b32d44791c38830ef))
+- win32k: return NULL instead of a bogus pointer when scroll-bar data is missing; callers already handle NULL. ([8230a926926](https://github.com/tomassrnka/reactos/commit/8230a926926872a621da9f0f322d83858ed8980b))
+- win32k: fix a memory-safety bug in message-queue teardown on thread exit. ([371bfe68589](https://github.com/tomassrnka/reactos/commit/371bfe68589de0f69199dbc81897928918c0fb91))
+- win32k: security hardening of internal window-message handling (local-privilege class) ([926dde795bf](https://github.com/tomassrnka/reactos/commit/926dde795bfbd04e64b642e24d36cb661afcb062))
+- win32k: harden user-pointer handling in message and callback paths ([cce177b56f5](https://github.com/tomassrnka/reactos/commit/cce177b56f5a66f7a98623555a0de11c05c8da32))
+- win32k: further hardening of window-procedure dispatch and menu data ([a0b5c28f73c](https://github.com/tomassrnka/reactos/commit/a0b5c28f73cb70383f2c1c3ade1d7b9166ed8fa8))
+- win32ss user: deliver cross-thread SendNotifyMessage after sender exits ([1543ea89788](https://github.com/tomassrnka/reactos/commit/1543ea897881a23e987d129e8ff65fda5355e523))
+- win32ss user: restore desktop DT_GWL_* slots (B6 regression) + winpos parent-lifetime ([8c8c30d9791](https://github.com/tomassrnka/reactos/commit/8c8c30d9791917889c2b97eeb580ca48fd563810))
+- win32ss user: SPI_GETFOREGROUNDLOCKTIMEOUT defaults to 200000 ([5601463dd0d](https://github.com/tomassrnka/reactos/commit/5601463dd0d1443126acc0ab5fad33e54f399f3c))
+- wow64: Hardening batch across win32k and system DLLs. ([f51f8c06cce](https://github.com/tomassrnka/reactos/commit/f51f8c06cceef2507e1912d204018bce2964abe8))
+
+</details>
+
+<details><summary>WoW64 (16 fixes)</summary>
+
+- boot bootdata: Ship the 32-bit schannel.dll in SysWOW64 so 32-bit applications get working TLS under WoW64. ([108701fa77f](https://github.com/tomassrnka/reactos/commit/108701fa77f706e6e7e2fbbe29e7f0562217dff2))
+- boot bootdata: Register 15 more 32-bit COM DLLs and ship extra 32-bit DLLs, so 32-bit installers find their COM classes. ([a303fcc13ff](https://github.com/tomassrnka/reactos/commit/a303fcc13ffb7a740149fc3eefc5d718d61356e3))
+- boot bootdata: ship pdh/msdmo/d3d9/ddraw/wmvcore in SysWOW64 ([fe7c237e652](https://github.com/tomassrnka/reactos/commit/fe7c237e652a930bf60da800006352f0156224e2))
+- boot bootdata: Ship the 32-bit hid.dll in SysWOW64; 32-bit user32 tests now run under WoW64. ([6d283e4e3d1](https://github.com/tomassrnka/reactos/commit/6d283e4e3d1415ad38d9b60588dbfa27f9c9cf47))
+- msafd: WoW64 ConnectEx (SUPER_CONNECT), AcceptEx short remote-address length → WSAEFAULT ([62acc7c3533](https://github.com/tomassrnka/reactos/commit/62acc7c3533f8faceb16a77540b3bf7abe3603ca))
+- wow64: WoW64 IOCTL_AFD_RECV_DATAGRAM thunk ([464928835c2](https://github.com/tomassrnka/reactos/commit/464928835c2c972f6eb31518c95d203495eae3ef))
+- wow64: SysWOW64 games/media DLLs + WoW64 ConsolepAttach ([ae59ef23baa](https://github.com/tomassrnka/reactos/commit/ae59ef23baa61dee4fdb5482592fed51412843ec))
+- wow64: thunk ConsolepFree/GetConsoleWindow/GetProcessList ([e96d7451c96](https://github.com/tomassrnka/reactos/commit/e96d7451c96dc2b3d6281cd1b98d19add5018b69))
+- wow64: WoW64 AcceptEx (SUPER_ACCEPT) and AFD connect-data thunks; native-size GET_CONTEXT ([653ee21742b](https://github.com/tomassrnka/reactos/commit/653ee21742b476d5b8b28e60e943e67270cbe8b6))
+- wow64: translate LPC to the LSA authentication port so LogonUser works in 32-bit processes ([2663fac46e3](https://github.com/tomassrnka/reactos/commit/2663fac46e3e5f54f1d52e8ea8551b95aad0f07b))
+- WoW64: support logon sessions, MSV1_0 password change and policy notifications for 32-bit processes. ([75b801cf5f8](https://github.com/tomassrnka/reactos/commit/75b801cf5f8decab71793a64461e65f42b4d02e2))
+- wow64: WoW64 thunk for NtOpenKeyEx ([fb9f562f339](https://github.com/tomassrnka/reactos/commit/fb9f562f33946cf531c4071fc498f8c02b0368a8))
+- WoW64: use 64-bit-wide NtUser callback tables in the 32-bit guest so 32-bit apps get window-procedure stubs like native. ([2b2deb75e7d](https://github.com/tomassrnka/reactos/commit/2b2deb75e7d01b2d952a6b78abef349941eec680))
+- wow64: WoW64 P0 syscall thunks (ObjectTypeInformation, AFD send-datagram/get-context, FsFullSize) ([124cfbb6522](https://github.com/tomassrnka/reactos/commit/124cfbb6522bd7ebc0a5fed1f573b60bd80d933c))
+- wow64: WoW64 P1 thunk batch (6 verified) ([d8d01fd13d3](https://github.com/tomassrnka/reactos/commit/d8d01fd13d3e7206973b674e31c5ccad97706266))
+- wow64: WoW64 P2 trivia thunks (6 verified) ([f1c63dcd1ab](https://github.com/tomassrnka/reactos/commit/f1c63dcd1ab85c0f2983248454ab7b0935b3c49c))
+
+</details>
+
+<details><summary>Networking (35 fixes)</summary>
+
+- AFD: AcceptEx error paths release their buffers and locked pages ([89f15489bc6](https://github.com/tomassrnka/reactos/commit/89f15489bc63af3524911f8c9759b105ead67c50))
+- AFD: fix a memory-safety bug on a failed local-address query ([95e7dde5971](https://github.com/tomassrnka/reactos/commit/95e7dde59710cd08a9ce19cd20fdf6321dff08f7))
+- AFD: validate output buffers and accept-state handling (hardening) ([df756200873](https://github.com/tomassrnka/reactos/commit/df75620087318454dfca08d7f5982878f84c26c3))
+- afd: SO_ERROR after a refused connect as on Windows ([6c816f3d05f](https://github.com/tomassrnka/reactos/commit/6c816f3d05feaa7991224e67c70a5f2a55ff91b3))
+- AFD: defensive request validation (hardening). ([e429a3f7d07](https://github.com/tomassrnka/reactos/commit/e429a3f7d07b896693c47c14a21451a046f32db3))
+- afd: per-datagram completion + close-waits-all + stub-transport tests ([3ebf636efd3](https://github.com/tomassrnka/reactos/commit/3ebf636efd35e85fa6c0ce86b9f4406b41635f04))
+- afd: don't bugcheck on unbound raw datagram sendto ([03c5a77e8c7](https://github.com/tomassrnka/reactos/commit/03c5a77e8c7d9bf4b31f6ea7f6a1c36f223db3d8))
+- afd: no-ARP source query, Windows UDP connect/FIONREAD/event semantics ([f58d0b7c0d0](https://github.com/tomassrnka/reactos/commit/f58d0b7c0d0ffa9803fa2b511cb5f883fa8fd62f))
+- afd: deliver zero-length UDP datagrams; getsockname after a UDP connect reports the route interface ([515a0816ed2](https://github.com/tomassrnka/reactos/commit/515a0816ed26265d1a18aded6b89cb1c613cab55))
+- afd: keep the implicit local binding after a refused connect ([75216b1b406](https://github.com/tomassrnka/reactos/commit/75216b1b406f83a6ffa0cd75bce08e5ef916bc61))
+- afd: WSARecvMsg IP_PKTINFO control data, MSG_CTRUNC, truncated datagram byte count ([1409d1a6e05](https://github.com/tomassrnka/reactos/commit/1409d1a6e054c493e6843e8cfa36cc8980dc70cc))
+- iphlpapi: Vista interface and unicast address tables ([b72a6598503](https://github.com/tomassrnka/reactos/commit/b72a65985031a3fe7329f05bfb10d96ef1eec84d))
+- iphlpapi: add NotifyIpInterfaceChange, NotifyUnicastIpAddressChange and NotifyRouteChange2 with route-change notification. ([9cd2cf8b520](https://github.com/tomassrnka/reactos/commit/9cd2cf8b520ec7f451f5a3a0742a260419c57faf))
+- iphlpapi: module lifetime, route key, old tcpip backoff, per-file cap, NotifyRouteChange, WoW64 route ioctl ([e88b0528ac2](https://github.com/tomassrnka/reactos/commit/e88b0528ac229de975a481875a3a280ada8ddfde))
+- msafd: SO_RCVBUF and SO_SNDBUF getsockopt return what was set, with no clamping of the caller's value. ([352f42cf08a](https://github.com/tomassrnka/reactos/commit/352f42cf08a824f5ed0e7e940bca3eacaaccb917))
+- msafd: reject a negative option length in setsockopt with WSAEFAULT, and extend the receive-buffer tests. ([7ce78b00452](https://github.com/tomassrnka/reactos/commit/7ce78b00452cc7eab0c3c8c07b2f217c5c8bca2a))
+- mswsock: NLA Winsock namespace provider + rnr NULL-class fix + WsNqLookupServiceBegin DNS-regression fix ([631ecbf27be](https://github.com/tomassrnka/reactos/commit/631ecbf27be3f71ff6f5d950d073d160b0cdc5ef))
+- NDIS: stop raising IRQL over the whole miniport worker, which faulted on paged pool; a regression from an earlier change. ([025318b1f38](https://github.com/tomassrnka/reactos/commit/025318b1f38c4ad6febda5ee8e563ff3dfee0570))
+- NDIS: abort pended requests on halt, remove and reset, and preallocate the per-adapter work item. ([2d79fdcb3e8](https://github.com/tomassrnka/reactos/commit/2d79fdcb3e8c052556ff37a450a31522bc73f727))
+- ndis: tcpip bind-failure teardown, NDIS fails transfers at halt, ndisuio write length ([14f84490680](https://github.com/tomassrnka/reactos/commit/14f844906801341cabd72309cc46354902d191d0))
+- NDIS: on adapter remove or stop, halt the miniport first and then unbind every protocol with reference-counted bindings. ([e2a3a4317ef](https://github.com/tomassrnka/reactos/commit/e2a3a4317ef5f51454a8a517bfd9e0879614d888))
+- NDIS: allow only one request at a time per miniport, as on Windows, and make each tcpip NDIS call wait on its own event. ([73ef1bd6738](https://github.com/tomassrnka/reactos/commit/73ef1bd6738f4d508f4871026a96b890bd6e1c63))
+- NDIS: fix a hang where a miniport reset waited behind the very request it aborted, and add a fake-miniport test driver. ([ae0e2cebf4b](https://github.com/tomassrnka/reactos/commit/ae0e2cebf4be0b2a67c09d64650c6e78b1d351bf))
+- ndisuio: ndisuio send/read/transfer lifetime, NDIS transfer/reset references ([8eff58c78a3](https://github.com/tomassrnka/reactos/commit/8eff58c78a3e96a64c57e3bca3f9231a5a3ffc2b))
+- schannel: report untrusted issuer ahead of expiry ([2ee6ddbec6e](https://github.com/tomassrnka/reactos/commit/2ee6ddbec6e672f44703dda254acc79008af7cf8))
+- tcpip: serialize looped UDP delivery (fixes datagram drop/recvfrom-hang race) ([b4ab1129898](https://github.com/tomassrnka/reactos/commit/b4ab1129898bbfcdd7082fe4b2fa92a64c6b848f))
+- tcpip: NotifyAddrChange and CancelIPChangeNotify now signal on IPv4 address, interface and link changes. ([25ad69e6a49](https://github.com/tomassrnka/reactos/commit/25ad69e6a49c21b5630c1c74c8ba2f28e8e22dff))
+- tcpip: validate untrusted network-supplied lengths in the ARP/neighbor code (memory-safety hardening) ([81cc1d95900](https://github.com/tomassrnka/reactos/commit/81cc1d95900eaf73453215336daeb0dc17419e62))
+- tcpip: reference-count IP interfaces and neighbour entries, and fix a bucket-lock deadlock and a route-table overrun. ([0ff193b5767](https://github.com/tomassrnka/reactos/commit/0ff193b5767089b0d2e808162128957880944c9d))
+- winhttp: surface specific TLS cert error ([1dadf4d4de8](https://github.com/tomassrnka/reactos/commit/1dadf4d4de872d06e4f81a48b1d89e6e0654c720))
+- Winsock: WSAEnumNameSpaceProviders returns a valid list again (crashed with the new NLA provider); DNS provider registered under the DNS namespace. ([dee4bd5ca39](https://github.com/tomassrnka/reactos/commit/dee4bd5ca39357706726d1ae67ac6127d5c79c49))
+- ws2_32: GetAddrInfoW now fails with WSANOTINITIALISED outside WSAStartup/WSACleanup instead of returning success. ([fbc328ab04e](https://github.com/tomassrnka/reactos/commit/fbc328ab04e6a7c685aecab86f6ec8b5ca6e77e7))
+- ws2_32: getservbyname and getservbyport now return the service alias list. ([c5df391d5cf](https://github.com/tomassrnka/reactos/commit/c5df391d5cf4b7071e5b663f51df788e75960b03))
+- ws2_32: getaddrinfo accepts trailing whitespace after an IPv4 address, as inet_aton does. ([f40caa6f89b](https://github.com/tomassrnka/reactos/commit/f40caa6f89b56eb1510ba043c22670aaa1e4086b))
+- ws2_32: bind returns WSAEFAULT for a bad address and picks an ephemeral port for a TCP wildcard bind. ([3f272041d41](https://github.com/tomassrnka/reactos/commit/3f272041d41cd4edfc5f7df64c2d0d60b4ad6c45))
+
+</details>
+
+<details><summary>Storage, USB, PnP and drivers (1 fix)</summary>
+
+- mouclass/kbdclass: serialize pending-IRP decisions under one spinlock, fixing input stalls under load. ([9fa5d159064](https://github.com/tomassrnka/reactos/commit/9fa5d159064639f58cf4dea434a4b85451ee4c07))
+
+</details>
+
+<details><summary>Shell, explorer and common controls (5 fixes)</summary>
+
+- shell: fix an AssocQueryString/AssocQueryKey crash at the NT6 identity and add NT6 parity. ([29df196f682](https://github.com/tomassrnka/reactos/commit/29df196f6821871e11dfe2702c6f15435866b364))
+- shell: don't ASSERT/double-append on dir of a UNC share root ([aafc5fd1b16](https://github.com/tomassrnka/reactos/commit/aafc5fd1b1652b2a6a456f70820ad7aab4f46919))
+- shell32: review fixes for shell-link property-store handling, including safer block replacement and parsing. ([79da1aec295](https://github.com/tomassrnka/reactos/commit/79da1aec295743847fedcedec4ef12fa5e1e4c93))
+- shell32: add the jump-list COM classes, fixing the 'Failed to begin Jump List transaction' error in Electron apps. ([d89a1851529](https://github.com/tomassrnka/reactos/commit/d89a1851529ff913cf2410a414e12941bed4ce3a))
+- shell32: shell links now persist property-store values in the .lnk file. ([0d095a75f83](https://github.com/tomassrnka/reactos/commit/0d095a75f8378d0c3972c51112ba39b3df29d46a))
+
+</details>
+
+<details><summary>Setup and boot (1 fix)</summary>
+
+- rapps: Feature manager: live software-tier install round trip and silent mode for the rapps installer. ([424831fff92](https://github.com/tomassrnka/reactos/commit/424831fff9275b6f449adaaefef28e05fa14f9a0))
+
+</details>
+
+<details><summary>Printing (1 fix)</summary>
+
+- win32ss printing: fix a memory-safety bug when deleting a printer port with jobs in flight ([5ad363d33be](https://github.com/tomassrnka/reactos/commit/5ad363d33beeabcfe87381536747b89ef579a6b7))
+
+</details>
+
+<details><summary>Services, security and profiles (5 fixes)</summary>
+
+- netapi32: NetLocalGroupGetMembers heap corruption, empty-alias and NetUserDel SAM fixes ([3badb842dac](https://github.com/tomassrnka/reactos/commit/3badb842dac68719ce503c65e7501ca94b4a52c8))
+- samsrv: NetUserDel does not fail for a domain without alias members ([1fa71fd6ab3](https://github.com/tomassrnka/reactos/commit/1fa71fd6ab36034c04297a34a868461afce6f960))
+- Services: use a 32-bit cookie as the service status handle so WoW64 services work and unknown handles fail cleanly. ([7eace4e9e1a](https://github.com/tomassrnka/reactos/commit/7eace4e9e1a030e7185f246c8e1e8ed1c3d3e09e))
+- services: Service failure actions: review fixes for services deleted or shut down while an action is pending. ([e41e57fa739](https://github.com/tomassrnka/reactos/commit/e41e57fa73967d73337b690d5028be982095768f))
+- services: The service control manager now runs failure actions (restart, run command, reboot) with delays and a reset period. ([ee353e7b5e9](https://github.com/tomassrnka/reactos/commit/ee353e7b5e92954063edd69acc96a0702949d090))
+
+</details>
+
+<details><summary>User-mode system DLLs (9 fixes)</summary>
+
+- kernel32: WriteProcessMemory keeps execute permission on executable ranges, fixing a self-patching regression. ([678c39705c1](https://github.com/tomassrnka/reactos/commit/678c39705c14d959d09f4408bc2cc0b3c3a26043))
+- kernel32: implement Boundary Descriptor / Private Namespace family ([2dfd2e6d1d7](https://github.com/tomassrnka/reactos/commit/2dfd2e6d1d7823ed0d111cb4b726b622a6a08bda))
+- kernel32: Correct WriteProcessMemory comments and test expectations and add a check that writes never gain execute permission. ([1840711a0b2](https://github.com/tomassrnka/reactos/commit/1840711a0b2ee83af1a5c1f3d83f52b2c9287768))
+- kernel32/ntdll: implement the XState and CONTEXT_EX context APIs, which PowerShell 7 and CoreCLR need. ([3ede716e4f8](https://github.com/tomassrnka/reactos/commit/3ede716e4f8cbb64d28d1adbf04c8b4ee585d20b))
+- msvcrt: export wcstok_s at 0x502, fixing the native NT 5.2 full-tree link. ([e2940f0f076](https://github.com/tomassrnka/reactos/commit/e2940f0f0769fed73d517f8485ed5bd367c4b318))
+- ntdll: Version-gated Vista to Win10 API parity fixes that keep NT 5.2 behaviour safe. ([5e7c04653c5](https://github.com/tomassrnka/reactos/commit/5e7c04653c5d4e3b0657d990d5e105c517626c40))
+- rtl: activation-context manifest probe reads only the headers and resources it needs (hardening) ([b6671bf92c5](https://github.com/tomassrnka/reactos/commit/b6671bf92c512e4948e39ba8b73355afd37c8bfb))
+- rtl: activation-context manifest probe: bound the PE resource-directory walk (hardening) ([df15091dee3](https://github.com/tomassrnka/reactos/commit/df15091dee32ed9313e3188c8a69131e453658a5))
+- ucrtbase: Implement the ucrtbase lrint family, which crashed codec and audio callers, and make log2 exact for powers of two. ([eecba8ed7d1](https://github.com/tomassrnka/reactos/commit/eecba8ed7d1b64fe931fc32cd17943bad9802bc6))
+
+</details>
+
+<details><summary>Browser, COM and Wine imports (8 fixes)</summary>
+
+- 3rdparty: enable ChaCha20-Poly1305 client cipher suites ([057f375a4df](https://github.com/tomassrnka/reactos/commit/057f375a4dfecbcce502abe19ede3e0cea73fdab))
+- cmake: ndfapi.dll Network Diagnostic Framework (17 impl + 7 stubs) ([a6ab370e260](https://github.com/tomassrnka/reactos/commit/a6ab370e26010d30fd4786d415785f34829a9ec1))
+- cmake: wer.dll Windows Error Reporting (9 impl + stubs) ([7ca94078a52](https://github.com/tomassrnka/reactos/commit/7ca94078a52089e2cdb8ff09b36989306583b3a5))
+- cmake: wevtapi.dll Windows Event Log API (36 impl, Wine 11.19) ([9cd46ace112](https://github.com/tomassrnka/reactos/commit/9cd46ace1124aa4e6c3b995df256bcb08dc634f1))
+- mscoree: Groundwork for hosting the Microsoft CLR; .NET Framework apps still do not run (see Limitations). ([49fed9726af](https://github.com/tomassrnka/reactos/commit/49fed9726affd9c69f487d75e8dc4e4d8130a912))
+- taskschd: Task Scheduler 2.0: taskschd.dll from Wine, the schedsvc service and triggers; the Chrome auto-update task runs. ([a1802f9ac3d](https://github.com/tomassrnka/reactos/commit/a1802f9ac3def66d155f5da7f9e511a46d231e34))
+- tbs: tbs.dll TPM Base Services (fail-like-Windows without TPM) ([7ae40fdcaf7](https://github.com/tomassrnka/reactos/commit/7ae40fdcaf7fa701c9ffc8591afa21ee6180e2ee))
+- urlmon: end a protocol on its apartment thread when a handoff cannot be posted. ([8fe5f7f3409](https://github.com/tomassrnka/reactos/commit/8fe5f7f3409502c30181c4611388799777bbc889))
+
+</details>
+
+<details><summary>Applications and tools (3 fixes)</summary>
+
+- appcompat: Application shims may now set only an allowlist of process-parameter flags. ([27d7948466c](https://github.com/tomassrnka/reactos/commit/27d7948466cd02a3ac8ea1de5666c18449b6d00a))
+- featmgr: Feature manager: center the Control Panel dialog and fetch the online catalog. ([0cb026648bc](https://github.com/tomassrnka/reactos/commit/0cb026648bc108cbe166abd5a4af40789cc466e6))
+- optionalfeatures: Optional Features: license-clean in-tree icon for the Control Panel applet. ([0facf99debe](https://github.com/tomassrnka/reactos/commit/0facf99debeb67b95fa8e01947dd4d20e29785a6))
+
+</details>
+
+<details><summary>Build, toolchain and API surface (1 fix)</summary>
+
+- tools: host-native ex/handle.c stress harness ([9eb6838f926](https://github.com/tomassrnka/reactos/commit/9eb6838f926eed3b10e8e6d718982f1f5eb24bf3))
+
+</details>
+
+<details><summary>Tests only (18 fixes)</summary>
+
+- tests: drop a duplicate AFD packet typedef that broke the ENABLE_ROSTESTS build. ([167c280c8a9](https://github.com/tomassrnka/reactos/commit/167c280c8a9754c344148a6165e3f5cac675f891))
+- tests: cover the handoff of a worker's reference when posting fails or the apartment ends. ([2a7ca0e24e9](https://github.com/tomassrnka/reactos/commit/2a7ca0e24e9de614538a8be18ec4309630e75920))
+- tests: run the AFD accept-state, connect-options and output-probe tests under WoW64 too. ([4c1ae8e9254](https://github.com/tomassrnka/reactos/commit/4c1ae8e925476e04cd07949e279c85c5573ad4d6))
+- tests: stronger regression tests for the window-procedure hardening. ([73ec4062994](https://github.com/tomassrnka/reactos/commit/73ec40629946faa7ed7823fdfe82e9038334e74d))
+- tests: add a ws2_32 test that opens many sockets. ([bbcfd8fbd50](https://github.com/tomassrnka/reactos/commit/bbcfd8fbd50f33849c6e23fdd1938b577ada5f29))
+- tests: positive and boundary cases for mapping section views. ([ef65da08dbd](https://github.com/tomassrnka/reactos/commit/ef65da08dbdca3ce65036ca8d364ae6f2a11cfd2))
+- tests: resolve Vista-and-later APIs at run time so the tests link at 0x502. ([530b21f00ee](https://github.com/tomassrnka/reactos/commit/530b21f00ee3d649ac547ae52c384fefd9f71303))
+- tests: map ObTypes expectations to Windows 10 NTDDI levels. ([69d5a21f6f2](https://github.com/tomassrnka/reactos/commit/69d5a21f6f20cb02b598c43c049a5f81112424f2))
+- tests: Register upstream's NtUser PFN test with ReactOS-aware expectations. ([4c30242f216](https://github.com/tomassrnka/reactos/commit/4c30242f216deb7ef35ca7006087f94e6e648e88))
+- tests: adapt the NtKeyedEvent and ZeroBits tests to Windows 10 behaviour. ([c63526185d0](https://github.com/tomassrnka/reactos/commit/c63526185d0833ceb37337a332a02c41a77c1fcc))
+- tests: regression tests for DuplicateHandle on read-only sections. ([267cc9e1666](https://github.com/tomassrnka/reactos/commit/267cc9e166660233a7e70bbfb5e39a4e51707a72))
+- tests: Add a test showing that the mscoreei.dll load failure is its own precondition, not a loader bug. ([134bef162d8](https://github.com/tomassrnka/reactos/commit/134bef162d8f7a6b3bbed478e9d6801a3f7f50a3))
+- tests: Test fix: the ws2_32 close test binds to an ephemeral port instead of a fixed one. ([0ee2a246784](https://github.com/tomassrnka/reactos/commit/0ee2a246784c107c07ed9e0c2cf4802ec64ec6dc))
+- tests: guard a NULL gethostbyname result in the ws2_32 test helper. ([8ac4e723ba6](https://github.com/tomassrnka/reactos/commit/8ac4e723ba6ad2f199baba248d9e83632ca8a470))
+- tests: add fmod/fmodf tests for msvcrt and ucrtbase. ([8f2782b4521](https://github.com/tomassrnka/reactos/commit/8f2782b4521136087fd31e6247c2a461ce05729a))
+- tests: add a TokenLogonSid test under WoW64. ([44a2b7636a9](https://github.com/tomassrnka/reactos/commit/44a2b7636a9d7281e994e2b37b954d2772d57c4c))
+- tests: add a kernel test for the ExInterlocked/IPI deadlock that is safe in the default suite. ([1b42b09e7fd](https://github.com/tomassrnka/reactos/commit/1b42b09e7fd434e34a88ae23dc2f156500ffa9f9))
+- tests: add kernel and Winsock tests for dynamic worker-thread growth and pending-I/O teardown. ([982b59e68bb](https://github.com/tomassrnka/reactos/commit/982b59e68bbb7d0e480fbda0e3807288c8507d03))
+
+</details>
+
+### Limitations
+- **Chrome runs with software rendering only.** There is no DirectComposition (`dcomp.dll`) and no hardware GPU acceleration; Claude Desktop uses its per-app software renderer configuration. Direct3D/DXGI windowed present over the display driver is not supported.
+- **32-bit MFC applications fail at their first window** (WoW64 cross-process global-hook gap, `WIN32K-global-hooks-cross-process`); other 32-bit apps are unaffected.
+- **Memory commit is capped at roughly physical RAM** until private memory becomes pageable (working-set trimming and a modified-page writer are not implemented). Size VMs accordingly; **Firefox 128 x64 thrashes when it reaches the cap.**
+- **.NET Framework 4.x managed applications still do not run** (`mscoree` is the Wine/Mono implementation; no Microsoft CLR host). PowerShell 7 (CoreCLR) is a separate path and works.
+- Extended CPU state (YMM/AVX-512) does not round-trip through `GetThreadContext`/`SetThreadContext` (the user-mode XState API reports it supported; the kernel does not save it).
+- **Known open security hardening items, local-privilege class.** A set of local hardening items remains open (including enforcement of some access-control checks in local services and the registry, and the remaining medium/low findings from our internal audits). They require local access to the machine. This is alpha-quality software: do not expose it to untrusted local users or networks.
+- A crash in a Firefox background (GPU) process can leave the browser window frozen instead of recovering. ReactOS runs DLL shutdown code when a process crashes, where Windows does not; a fix is queued. Current Firefox 159 occasionally hits this on Google's CAPTCHA page; end the firefox.exe processes in Task Manager to recover.
+- Reverse DNS lookups via `getnameinfo` / `gethostbyaddr` fail (WSAHOST_NOT_FOUND) even though `nslookup` resolves them; pre-existing.
+- GetSystemMetrics reports no mouse (`SM_MOUSEPRESENT` = 0) even though the mouse works; inherited from upstream ReactOS's input-device rework. Apps that check for a mouse may behave as if none is attached.
+- WoW64 is amd64 only. Firefox ESR 128 and Firefox 158 are the tested versions (newer versions are expected to work but are untested); the 64-bit sandbox process starts but its restrictions are not fully enforced.
+- Carried forward from earlier releases: some 32-bit applications leave redraw artifacts when dragged; everything in upstream ReactOS's own list of known issues also applies.
+- **Resolved since 2026.10-4:** the `DuplicateHandle` access-widening regression is corrected; Firefox 32-bit now renders at the default sandbox; end-to-end HTTP browsing works in Chrome.
+
+### Changes since reactos-nitro 2026.10-4
+New upstream base `e46f4bb1a1e` (weekly sync #4). This release makes Windows 10 the default identity and adds Chrome, Claude Desktop, Firefox 158/32-bit-at-default-sandbox and PowerShell 7 support, Task Scheduler 2.0, the feature manager, Mesa/lavapipe graphics, the guest-clock and memory-commit fixes, a large WoW64/networking/kernel fix batch (229 changes listed above) and a security hardening batch. Shipped as the replayed 52-topic patch series on the new base.
+
 ## reactos-nitro 2026.10-4
 
 **Tagged `nitro-2026.10-4`** (2026-10-24) at fork `main` [`be9d31b1b9a`](https://github.com/tomassrnka/reactos/commit/be9d31b1b9a4dcdc3123026d15a3bab5c44c35ea). The app-compatibility release: **Claude Desktop (Electron/Chromium) now runs, renders, and connects to the live service on reactos-nitro**, on the same upstream base as 2026.10-2/-3, plus Firefox 32+64 side-by-side rendering and a kernel security/stability batch.
