@@ -4,28 +4,33 @@ reactos-nitro is an unofficial patch set on top of upstream ReactOS. It is not a
 
 ## reactos-nitro 2026.10-5
 
-**Tagged `nitro-2026.10-5`** (2026-10-29) at fork `main` [`a39f5b08cd9`](https://github.com/tomassrnka/reactos/commit/a39f5b08cd93d8b30b6d8e4de3129725119ac671). The modern-app release: **Windows 10 is now the default reported identity**, **Chrome and Claude Desktop run** (Chrome with software rendering), **32-bit Firefox renders at the default sandbox again** (32+64-bit side by side), **Firefox 158** and **PowerShell 7** run, and the guest gets a real Task Scheduler, a correct clock and a memory commit cap that stops runaway apps crashing the guest.
+**Tagged `nitro-2026.10-5`** (2026-10-30) at fork `main` [`575d4ccb913`](https://github.com/tomassrnka/reactos/commit/575d4ccb91319dc59bdc583c73067556e10a4516). The modern-app release: **Windows 10 is now the default reported identity**, **Chrome and Claude Desktop run** (Chrome with software rendering), **32-bit Firefox renders at the default sandbox again** (32+64-bit side by side), **Firefox 158** and **PowerShell 7** run, and the guest gets a real Task Scheduler, a correct clock and a memory commit cap that stops runaway apps crashing the guest.
 
 | Item | Value |
 |---|---|
-| Release tag | `nitro-2026.10-5` → [`a39f5b08cd9`](https://github.com/tomassrnka/reactos/commit/a39f5b08cd93d8b30b6d8e4de3129725119ac671) |
+| Release tag | `nitro-2026.10-5` → [`575d4ccb913`](https://github.com/tomassrnka/reactos/commit/575d4ccb91319dc59bdc583c73067556e10a4516) |
 | ReactOS base | upstream [`e46f4bb1a1e`](https://github.com/reactos/reactos/commit/e46f4bb1a1ea7c722f941231565144fe0c286d3e) (2026-10-25, weekly sync #4; 59 upstream commits since the `f53b1d15601` base of 2026.10-2/-3/-4) |
-| Patch series | 52 topic patches on `e46f4bb1a1e` (cumulative, whole series); series head `7d53f83f4ef`; applied tree `aa5dae057201` — verified identical to the release commit. This release's delta over 2026.10-4: 229 changes (223 branch merges + 6 direct commits) plus the upstream sync. |
+| Patch series | 52 topic patches on `e46f4bb1a1e` (cumulative, whole series); series head `52800c001a5`; applied tree `0ad3bbd2ebde` — verified identical to the release commit. This release's delta over 2026.10-4: 242 changes (236 branch merges + 6 direct commits) plus the upstream sync. |
 | Artifacts | amd64-with-WoW64 ISO, i386 ISO, source tarball, patch series |
 
 | Artifact | Size | sha256 |
 |---|---|---|
-| reactos-nitro-2026.10-5-amd64-wow64-Release.iso | 650117120 | `ee72da82d10e290df04fecacd9ae5b437127f2316908d553550f3780c2d99dfa` |
-| reactos-nitro-2026.10-5-i386-Release.iso | 417333248 | `9d52822d9599107a5d9ac04c7a9e3a192d50fe9dd98a30aa596eaa17d977ab2a` |
-| reactos-nitro-2026.10-5-src.tar.gz | 124539032 | `aa86c068fe886260f0104d31802d28cf2bbe067d9cc266da5ab5ba8a417ec8e4` |
-| nitro-2026.10-5-patch-series.tar.gz | 30932418 | `68efb3b52dd590bfac03eb52069bd1bf964d8582230305be96cf322e5949eafc` |
+| reactos-nitro-2026.10-5-amd64-wow64-Release.iso | 651165696 | `7664b76950df1138e7a6b06dc0d9624e633dc7eb830d9096867a76fc377319e7` |
+| reactos-nitro-2026.10-5-i386-Release.iso | 417333248 | `5ee77829c1ad65c47b217c31c443aab29d64c620a024c71d807d55e4331fe4db` |
+| reactos-nitro-2026.10-5-src.tar.gz | 123228851 | `563a941deaadb57449e8b43efdca31e343ff6194fdccc5fccb7fb460eda2281d` |
+| nitro-2026.10-5-patch-series.tar.gz | 31016367 | `7917b4e1600d073739c3967e769b9c3e9580f348fe432ca14ac306b85ffed295` |
 
 ### Highlights
+- **Firefox no longer freezes after a GPU-process crash**: a crashed process now terminates without running DLL shutdown code, as on Windows.
+- **PowerShell 7 is usable**: culture-aware sorting and hashing work (jobs, CLIXML, no red errors), HTTPS works through schannel SCH_CREDENTIALS, hostname lookups complete (GetAddrInfoExW), registry tree delete works, and a one-click install is available through the feature manager (`featmgr /install powershell-7`).
+- **Scoop works end to end on NTFS**: robocopy, `select()` timeouts and git over HTTPS are fixed; `scoop install 7zip`, `scoop install git` and `scoop bucket add extras` work.
+- **WordCraft runs** (`prntvpt.dll`, `windows.data.pdf.dll`), and the **ArtCraft Launcher installs apps** (standard-handle fix).
+- **RTL thread pool reworked to behave like Windows** (gradual worker injection, long-function work items, persistent work items).
 - **Windows 10 identity by default** (10.0.19045): modern apps that gate on `VersionNT` / Win10 now launch. Backed by a version-gated NT6–Win10 API parity batch (UTF-8 `WideCharToMultiByte`, user32/win32k, shell32, object manager, named pipes, kernelbase exports, Win8 pointer-input exports, `NtOpenKeyEx`, `ProcessHandleTable`, TokenElevation, XState/CONTEXT_EX).
 - **Chrome works and is stable for long sessions** — with software rendering (`dcomp.dll` is absent, so Chrome runs with software compositing, set by default policy). Stock Chrome 156 installs (including the enterprise MSI), paints and browses remote sites with no flags; Chrome 3-hour soaks ran with no crashes; QUIC, `GetAddrInfoEx`, NLA network-change, registry change-notification and registered-wait fixes behind it.
 - **Claude Desktop works**: installable from the feature manager, renders and connects online, sandboxed and unsandboxed; paints reliably under host load (winmm `timeGetTime` fix); stable in 3-hour soaks.
 - **Firefox 32-bit renders at the DEFAULT sandbox again** — "32-bit + 64-bit side by side" is true at default settings (no `security.sandbox.content.level=0` workaround needed). Firefox 158 x86 and x64 start and render; Firefox 128 x64 renders with the sandbox on.
-- **PowerShell 7 runs** (.NET 8 CoreCLR): XState/CONTEXT_EX context API, IL-only AnyCPU assembly loading, `FlushProcessWriteBuffers`, `FindNLSStringEx` and locale fixes.
+- **PowerShell 7 runs** (.NET 8 CoreCLR): XState/CONTEXT_EX context API, IL-only AnyCPU assembly loading, `FlushProcessWriteBuffers`, `FindNLSStringEx` and locale fixes underneath the usability work above.
 - **Task Scheduler 2.0** (`taskschd.dll`, `schedsvc`, triggers) — the Chrome auto-update task fires; real COM surrogate (`dllhost.exe`).
 - **Guest clock fix**: the TSC frequency is taken from the hypervisor, drift ≤0.004% under heavy load (was tens of percent).
 - **Memory commit cap**: commit is limited to what RAM and pageable memory can back, so a runaway app gets allocation failures instead of crashing the whole guest; critical processes keep a reserve.
@@ -39,7 +44,7 @@ reactos-nitro is an unofficial patch set on top of upstream ReactOS. It is not a
 #### OS identity and API parity
 Win10 as the default reported identity (`VERBUMP_TIER=100`) with a version-gated parity layer that keeps NT 5.2 behaviour safe; NT6+/Win8+ semantics in the object manager, named pipes, section mapping, `NtClose`, shell32, appshim/apphelp, kernelbase (≈720 forwarded exports, a real import library, AppContainer moniker APIs), user32 pointer-input APIs and the CRT/ucrtbase.
 #### Application compatibility
-Chrome (installer, updater, sandbox, QUIC, omnibox/registry-watch, renderer delay-load), Claude Desktop (feature-manager package, per-machine wined3d settings, paint reliability), Firefox (32-bit sandbox under WoW64, 158 x86 dependencies, about:support), PowerShell 7 (CoreCLR prerequisites), a COM surrogate host, Task Scheduler 2.0, and the registered-wait thread pool reworked to Windows semantics (shared wait threads, pool dispatch).
+Chrome (installer, updater, sandbox, QUIC, omnibox/registry-watch, renderer delay-load), Claude Desktop (feature-manager package, per-machine wined3d settings, paint reliability), Firefox (32-bit sandbox under WoW64, 158 x86 dependencies, about:support), PowerShell 7 (CoreCLR prerequisites), a COM surrogate host, Task Scheduler 2.0, and the registered-wait thread pool reworked to Windows semantics (shared wait threads, pool dispatch), the worker thread pool reworked to inject threads like Windows, process-crash semantics without DLL detach, and PowerShell 7 / Scoop support (schannel SCH_CREDENTIALS, culture-aware sort keys and hashing, asynchronous GetAddrInfoExW, RegDeleteTree, robocopy, select() timeouts, a feature-manager entry), plus WordCraft and ArtCraft Launcher support.
 #### WoW64
 New thunks (`NtOpenKeyEx`, `NtNotifyChangeKey`, AFD AcceptEx/ConnectEx super-accept/connect, datagram receive, LSA logon/sessions, console), 32-bit COM registration, more SysWOW64 DLLs (`cfgmgr32`, `avrt`, `credui`, `oledlg`, `hid`, schannel, games/media), 64-bit-wide NtUserPfn tables, and 32-bit Chromium-style sandboxes.
 #### Networking
@@ -53,9 +58,9 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 
 ## Bug fixes
 
-229 changes: one line for each of the 223 branches merged into Nitro main and each of 6 small changes committed directly on main since `nitro-2026.10-4`, grouped by area (click an area to open it). Security-related fixes are described generically on purpose. This is the delta of this release only; it includes everything from `nitro-2026.10-4` (whose section is below). The weekly upstream ReactOS sync (0036d5334c8) is not listed here.
+242 changes: one line for each of the 236 branches merged into Nitro main and each of 6 small changes committed directly on main since `nitro-2026.10-4`, grouped by area (click an area to open it). Security-related fixes are described generically on purpose. This is the delta of this release only; it includes everything from `nitro-2026.10-4` (whose section is below). The weekly upstream ReactOS sync (0036d5334c8) is not listed here.
 
-<details><summary>Application compatibility (Chrome, Claude Desktop, Firefox) (33 fixes)</summary>
+<details><summary>Application compatibility (Chrome, Claude Desktop, Firefox) (34 fixes)</summary>
 
 - advapi32: Chrome enterprise MSI installs run silently; the service-control protocol is now bitness-independent for 32-bit services. ([c783084710a](https://github.com/tomassrnka/reactos/commit/c783084710a2ee3bf7935d3a44754479341aa456))
 - advapi32: GetFirmwareType + SystemBootEnvironmentInformation + AddConditionalAce ([8c15c304902](https://github.com/tomassrnka/reactos/commit/8c15c304902155a6d115843a4a4a42cd84ec7a97))
@@ -69,6 +74,7 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 - featmgr: Feature manager: add a 'claude-desktop' catalog entry that downloads Anthropic's official package at install time (checksum-verified). ([d2637c3b88f](https://github.com/tomassrnka/reactos/commit/d2637c3b88f76051d45e5f86f1fa3231fb928ccf))
 - kernel32: honour PROC_THREAD_ATTRIBUTE_JOB_LIST (Chrome sandbox registered-wait leak) ([31fcd2ead00](https://github.com/tomassrnka/reactos/commit/31fcd2ead006c9ea1086e81ee65cc2f1203a8b4d))
 - kernel32: PowerShell 7 runs: XState/CONTEXT_EX context API, IL-only AnyCPU assembly loading, FlushProcessWriteBuffers, FindNLSStringEx and locale fixes. ([ef0a0af93ae](https://github.com/tomassrnka/reactos/commit/ef0a0af93aed4db4fafd94fdf0cad7e0233664ea))
+- kernel32/ntdll: a crashed process terminates without running DLL detach or atexit code, as Windows does; fixes Firefox freezing after a GPU-process crash. ([607836aada2](https://github.com/tomassrnka/reactos/commit/607836aada22cf19e76930b02e5b386c480eabf8))
 - kernelbase: fix Chrome renderer 'Aw, Snap' crashes: QueryUnbiasedInterruptTimePrecise now resolves in the locked-down renderer ([7dd216cf820](https://github.com/tomassrnka/reactos/commit/7dd216cf820d97a46989d83e5684d50230fcb65c))
 - msafd: msafd WSARecvMsg (Chrome QUIC works) ([26ed0cd40be](https://github.com/tomassrnka/reactos/commit/26ed0cd40be43689b783416775800f498fd30ff4))
 - npfs: record the pipe server process ID and implement GetNamedPipeServerProcessId. ([31ef7501f8d](https://github.com/tomassrnka/reactos/commit/31ef7501f8d62072a3d2edce29667d6be568c882))
@@ -177,8 +183,9 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 
 </details>
 
-<details><summary>Kernel: Ob, Se, Ps, Ex and registry (7 fixes)</summary>
+<details><summary>Kernel: Ob, Se, Ps, Ex and registry (8 fixes)</summary>
 
+- advapi32: RegDeleteTree(hKey, "") keeps the key handle open as on Windows; fixes PowerShell Remove-Item -Recurse on registry keys. ([be196deddb7](https://github.com/tomassrnka/reactos/commit/be196deddb7be3730ea1aa5cf3822aac5f0e11cf))
 - NtFilterToken: SIDs to disable now become deny-only as on Windows. ([28b13e31eb2](https://github.com/tomassrnka/reactos/commit/28b13e31eb232eab0e0508eaa3fa498e9994a70e))
 - ntoskrnl config: implement NtOpenKeyEx / ZwOpenKeyEx ([0c3249c2299](https://github.com/tomassrnka/reactos/commit/0c3249c229940d30ffacb624607a5a124328797c))
 - ntoskrnl ex: add NOHANDLECACHE boot option as a handle-cache kill-switch ([c4c7cedf479](https://github.com/tomassrnka/reactos/commit/c4c7cedf479cc3690f47ed5990803fec99436b26))
@@ -226,6 +233,12 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 
 </details>
 
+<details><summary>Console and csrss (1 fix)</summary>
+
+- kernel32: GUI processes get NULL standard handles instead of stale ones, and USESTDHANDLES without inheritance gives NULL; ArtCraft Launcher installs apps. ([301a087b4c5](https://github.com/tomassrnka/reactos/commit/301a087b4c518b88991481efa7802b47a6cda345))
+
+</details>
+
 <details><summary>WoW64 (16 fixes)</summary>
 
 - boot bootdata: Ship the 32-bit schannel.dll in SysWOW64 so 32-bit applications get working TLS under WoW64. ([108701fa77f](https://github.com/tomassrnka/reactos/commit/108701fa77f706e6e7e2fbbe29e7f0562217dff2))
@@ -247,7 +260,7 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 
 </details>
 
-<details><summary>Networking (35 fixes)</summary>
+<details><summary>Networking (40 fixes)</summary>
 
 - AFD: AcceptEx error paths release their buffers and locked pages ([89f15489bc6](https://github.com/tomassrnka/reactos/commit/89f15489bc63af3524911f8c9759b105ead67c50))
 - AFD: fix a memory-safety bug on a failed local-address query ([95e7dde5971](https://github.com/tomassrnka/reactos/commit/95e7dde59710cd08a9ce19cd20fdf6321dff08f7))
@@ -273,6 +286,9 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 - NDIS: allow only one request at a time per miniport, as on Windows, and make each tcpip NDIS call wait on its own event. ([73ef1bd6738](https://github.com/tomassrnka/reactos/commit/73ef1bd6738f4d508f4871026a96b890bd6e1c63))
 - NDIS: fix a hang where a miniport reset waited behind the very request it aborted, and add a fake-miniport test driver. ([ae0e2cebf4b](https://github.com/tomassrnka/reactos/commit/ae0e2cebf4be0b2a67c09d64650c6e78b1d351bf))
 - ndisuio: ndisuio send/read/transfer lifetime, NDIS transfer/reset references ([8eff58c78a3](https://github.com/tomassrnka/reactos/commit/8eff58c78a3e96a64c57e3bca3f9231a5a3ffc2b))
+- schannel: report the Windows context attributes and answer the ALPN query with "none" (fixes git over HTTPS and Scoop bucket add). ([57ec3a5521c](https://github.com/tomassrnka/reactos/commit/57ec3a5521c0b2fb3067dc0c213092f5a8346a16))
+- schannel: first SCH_CREDENTIALS credential support and test coverage (reworked in the updater-safe change listed with it). ([f13b71626a0](https://github.com/tomassrnka/reactos/commit/f13b71626a08725920ed751d98148af7411be484))
+- schannel: accept SCH_CREDENTIALS credentials by translating them to the existing credential path, so .NET 8 and PowerShell 7 HTTPS work; keeps the proven TLS data path (fixes intermittent Google updater crashes during Chrome MSI installs). ([9535680b025](https://github.com/tomassrnka/reactos/commit/9535680b025308171246ee07885231249f1a6f18))
 - schannel: report untrusted issuer ahead of expiry ([2ee6ddbec6e](https://github.com/tomassrnka/reactos/commit/2ee6ddbec6e672f44703dda254acc79008af7cf8))
 - tcpip: serialize looped UDP delivery (fixes datagram drop/recvfrom-hang race) ([b4ab1129898](https://github.com/tomassrnka/reactos/commit/b4ab1129898bbfcdd7082fe4b2fa92a64c6b848f))
 - tcpip: NotifyAddrChange and CancelIPChangeNotify now signal on IPv4 address, interface and link changes. ([25ad69e6a49](https://github.com/tomassrnka/reactos/commit/25ad69e6a49c21b5630c1c74c8ba2f28e8e22dff))
@@ -280,9 +296,11 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 - tcpip: reference-count IP interfaces and neighbour entries, and fix a bucket-lock deadlock and a route-table overrun. ([0ff193b5767](https://github.com/tomassrnka/reactos/commit/0ff193b5767089b0d2e808162128957880944c9d))
 - winhttp: surface specific TLS cert error ([1dadf4d4de8](https://github.com/tomassrnka/reactos/commit/1dadf4d4de872d06e4f81a48b1d89e6e0654c720))
 - Winsock: WSAEnumNameSpaceProviders returns a valid list again (crashed with the new NLA provider); DNS provider registered under the DNS namespace. ([dee4bd5ca39](https://github.com/tomassrnka/reactos/commit/dee4bd5ca39357706726d1ae67ac6127d5c79c49))
+- ws2_32: GetAddrInfoExW overlapped lookups complete on a worker thread as on Windows, fixing .NET and PowerShell 7 hostname hangs. ([1c797601e00](https://github.com/tomassrnka/reactos/commit/1c797601e00eaefd9b4853ccd24a33b122e47beb))
 - ws2_32: GetAddrInfoW now fails with WSANOTINITIALISED outside WSAStartup/WSACleanup instead of returning success. ([fbc328ab04e](https://github.com/tomassrnka/reactos/commit/fbc328ab04e6a7c685aecab86f6ec8b5ca6e77e7))
 - ws2_32: getservbyname and getservbyport now return the service alias list. ([c5df391d5cf](https://github.com/tomassrnka/reactos/commit/c5df391d5cf4b7071e5b663f51df788e75960b03))
 - ws2_32: getaddrinfo accepts trailing whitespace after an IPv4 address, as inet_aton does. ([f40caa6f89b](https://github.com/tomassrnka/reactos/commit/f40caa6f89b56eb1510ba043c22670aaa1e4086b))
+- ws2_32: select() accepts every timeout value Windows accepts; fixes git over HTTPS and Scoop bucket add. ([9e19e4735cc](https://github.com/tomassrnka/reactos/commit/9e19e4735ccd2c1334668aa211ec19f41b4a4b83))
 - ws2_32: bind returns WSAEFAULT for a bad address and picks an ephemeral port for a TCP wildcard bind. ([3f272041d41](https://github.com/tomassrnka/reactos/commit/3f272041d41cd4edfc5f7df64c2d0d60b4ad6c45))
 
 </details>
@@ -325,37 +343,42 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 
 </details>
 
-<details><summary>User-mode system DLLs (9 fixes)</summary>
+<details><summary>User-mode system DLLs (11 fixes)</summary>
 
 - kernel32: WriteProcessMemory keeps execute permission on executable ranges, fixing a self-patching regression. ([678c39705c1](https://github.com/tomassrnka/reactos/commit/678c39705c14d959d09f4408bc2cc0b3c3a26043))
 - kernel32: implement Boundary Descriptor / Private Namespace family ([2dfd2e6d1d7](https://github.com/tomassrnka/reactos/commit/2dfd2e6d1d7823ed0d111cb4b726b622a6a08bda))
+- kernel32: LCMapStringEx sort keys and LCMAP_HASH now work, fixing .NET culture-aware hashing (PowerShell 7 jobs, CLIXML). ([2dc1b9dc1e0](https://github.com/tomassrnka/reactos/commit/2dc1b9dc1e07d3e4056e7495cceb96094ff702df))
 - kernel32: Correct WriteProcessMemory comments and test expectations and add a check that writes never gain execute permission. ([1840711a0b2](https://github.com/tomassrnka/reactos/commit/1840711a0b2ee83af1a5c1f3d83f52b2c9287768))
 - kernel32/ntdll: implement the XState and CONTEXT_EX context APIs, which PowerShell 7 and CoreCLR need. ([3ede716e4f8](https://github.com/tomassrnka/reactos/commit/3ede716e4f8cbb64d28d1adbf04c8b4ee585d20b))
 - msvcrt: export wcstok_s at 0x502, fixing the native NT 5.2 full-tree link. ([e2940f0f076](https://github.com/tomassrnka/reactos/commit/e2940f0f0769fed73d517f8485ed5bd367c4b318))
 - ntdll: Version-gated Vista to Win10 API parity fixes that keep NT 5.2 behaviour safe. ([5e7c04653c5](https://github.com/tomassrnka/reactos/commit/5e7c04653c5d4e3b0657d990d5e105c517626c40))
 - rtl: activation-context manifest probe reads only the headers and resources it needs (hardening) ([b6671bf92c5](https://github.com/tomassrnka/reactos/commit/b6671bf92c512e4948e39ba8b73355afd37c8bfb))
 - rtl: activation-context manifest probe: bound the PE resource-directory walk (hardening) ([df15091dee3](https://github.com/tomassrnka/reactos/commit/df15091dee32ed9313e3188c8a69131e453658a5))
+- rtl: the thread pool injects worker threads gradually like Windows (one per CPU, then about one per 160 ms); long-running work gets a thread at once. ([712a32490b8](https://github.com/tomassrnka/reactos/commit/712a32490b8be58c0cb9af2132fb8e1a675c89cd))
 - ucrtbase: Implement the ucrtbase lrint family, which crashed codec and audio callers, and make log2 exact for powers of two. ([eecba8ed7d1](https://github.com/tomassrnka/reactos/commit/eecba8ed7d1b64fe931fc32cd17943bad9802bc6))
 
 </details>
 
-<details><summary>Browser, COM and Wine imports (8 fixes)</summary>
+<details><summary>Browser, COM and Wine imports (9 fixes)</summary>
 
 - 3rdparty: enable ChaCha20-Poly1305 client cipher suites ([057f375a4df](https://github.com/tomassrnka/reactos/commit/057f375a4dfecbcce502abe19ede3e0cea73fdab))
 - cmake: ndfapi.dll Network Diagnostic Framework (17 impl + 7 stubs) ([a6ab370e260](https://github.com/tomassrnka/reactos/commit/a6ab370e26010d30fd4786d415785f34829a9ec1))
 - cmake: wer.dll Windows Error Reporting (9 impl + stubs) ([7ca94078a52](https://github.com/tomassrnka/reactos/commit/7ca94078a52089e2cdb8ff09b36989306583b3a5))
 - cmake: wevtapi.dll Windows Event Log API (36 impl, Wine 11.19) ([9cd46ace112](https://github.com/tomassrnka/reactos/commit/9cd46ace1124aa4e6c3b995df256bcb08dc634f1))
 - mscoree: Groundwork for hosting the Microsoft CLR; .NET Framework apps still do not run (see Limitations). ([49fed9726af](https://github.com/tomassrnka/reactos/commit/49fed9726affd9c69f487d75e8dc4e4d8130a912))
+- prntvpt: Add prntvpt.dll (from Wine) and a windows.data.pdf.dll stub, so WordCraft starts. ([35ab2e47b03](https://github.com/tomassrnka/reactos/commit/35ab2e47b0302cb0e2d42228ecb28c59d5f2e11d))
 - taskschd: Task Scheduler 2.0: taskschd.dll from Wine, the schedsvc service and triggers; the Chrome auto-update task runs. ([a1802f9ac3d](https://github.com/tomassrnka/reactos/commit/a1802f9ac3def66d155f5da7f9e511a46d231e34))
 - tbs: tbs.dll TPM Base Services (fail-like-Windows without TPM) ([7ae40fdcaf7](https://github.com/tomassrnka/reactos/commit/7ae40fdcaf7fa701c9ffc8591afa21ee6180e2ee))
 - urlmon: end a protocol on its apartment thread when a handoff cannot be posted. ([8fe5f7f3409](https://github.com/tomassrnka/reactos/commit/8fe5f7f3409502c30181c4611388799777bbc889))
 
 </details>
 
-<details><summary>Applications and tools (3 fixes)</summary>
+<details><summary>Applications and tools (5 fixes)</summary>
 
 - appcompat: Application shims may now set only an allowlist of process-parameter flags. ([27d7948466c](https://github.com/tomassrnka/reactos/commit/27d7948466cd02a3ac8ea1de5666c18449b6d00a))
+- cmdutils: robocopy.exe implemented; unblocks the Scoop installer. ([194c804ff30](https://github.com/tomassrnka/reactos/commit/194c804ff30be96aac04878502bd92189659654a))
 - featmgr: Feature manager: center the Control Panel dialog and fetch the online catalog. ([0cb026648bc](https://github.com/tomassrnka/reactos/commit/0cb026648bc108cbe166abd5a4af40789cc466e6))
+- featmgr: Feature manager: add a 'powershell-7' entry that installs the official 7.4.22 MSI (SHA-256 verified); explorer re-reads the environment on change. ([d191031a1e1](https://github.com/tomassrnka/reactos/commit/d191031a1e180e064bc3bfcfd5a03d7da18d3f8a))
 - optionalfeatures: Optional Features: license-clean in-tree icon for the Control Panel applet. ([0facf99debe](https://github.com/tomassrnka/reactos/commit/0facf99debeb67b95fa8e01947dd4d20e29785a6))
 
 </details>
@@ -396,15 +419,20 @@ SCM failure actions, bitness-independent service status, real surrogate/RPCSS co
 - **.NET Framework 4.x managed applications still do not run** (`mscoree` is the Wine/Mono implementation; no Microsoft CLR host). PowerShell 7 (CoreCLR) is a separate path and works.
 - Extended CPU state (YMM/AVX-512) does not round-trip through `GetThreadContext`/`SetThreadContext` (the user-mode XState API reports it supported; the kernel does not save it).
 - **Known open security hardening items, local-privilege class.** A set of local hardening items remains open (including enforcement of some access-control checks in local services and the registry, and the remaining medium/low findings from our internal audits). They require local access to the machine. This is alpha-quality software: do not expose it to untrusted local users or networks.
-- A crash in a Firefox background (GPU) process can leave the browser window frozen instead of recovering. ReactOS runs DLL shutdown code when a process crashes, where Windows does not; a fix is queued. Current Firefox 159 occasionally hits this on Google's CAPTCHA page; end the firefox.exe processes in Task Manager to recover.
 - Reverse DNS lookups via `getnameinfo` / `gethostbyaddr` fail (WSAHOST_NOT_FOUND) even though `nslookup` resolves them; pre-existing.
+- **An 8 GB VM uses only about 3 GB of RAM** (memory above 4 GB is not used yet; fix in progress).
+- **DeckCraft does not start** (it needs DirectX 12 only).
+- **WMI / CIM cmdlets** in PowerShell 7 are not included yet.
+- `attrib /L` is missing (Scoop's installers print "Invalid parameter format - /L" but complete).
+- Double-clicking the stock PowerShell MSI shows a WMF message; install PowerShell 7 with `featmgr /install powershell-7` instead.
 - GetSystemMetrics reports no mouse (`SM_MOUSEPRESENT` = 0) even though the mouse works; inherited from upstream ReactOS's input-device rework. Apps that check for a mouse may behave as if none is attached.
 - WoW64 is amd64 only. Firefox ESR 128 and Firefox 158 are the tested versions (newer versions are expected to work but are untested); the 64-bit sandbox process starts but its restrictions are not fully enforced.
 - Carried forward from earlier releases: some 32-bit applications leave redraw artifacts when dragged; everything in upstream ReactOS's own list of known issues also applies.
 - **Resolved since 2026.10-4:** the `DuplicateHandle` access-widening regression is corrected; Firefox 32-bit now renders at the default sandbox; end-to-end HTTP browsing works in Chrome.
 
 ### Changes since reactos-nitro 2026.10-4
-New upstream base `e46f4bb1a1e` (weekly sync #4). This release makes Windows 10 the default identity and adds Chrome, Claude Desktop, Firefox 158/32-bit-at-default-sandbox and PowerShell 7 support, Task Scheduler 2.0, the feature manager, Mesa/lavapipe graphics, the guest-clock and memory-commit fixes, a large WoW64/networking/kernel fix batch (229 changes listed above) and a security hardening batch. Shipped as the replayed 52-topic patch series on the new base.
+New upstream base `e46f4bb1a1e` (weekly sync #4). This release makes Windows 10 the default identity and adds Chrome, Claude Desktop, Firefox 158/32-bit-at-default-sandbox, a usable PowerShell 7 and Scoop support, Task Scheduler 2.0, the feature manager, Mesa/lavapipe graphics, the guest-clock and memory-commit fixes, a large WoW64/networking/kernel fix batch (242 changes listed above) and a security hardening batch. Shipped as the replayed 52-topic patch series on the new base.
+
 
 ## reactos-nitro 2026.10-4
 
